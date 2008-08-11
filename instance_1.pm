@@ -1,20 +1,6 @@
 use warnings;
 
-package Irssi::Scripts::Instance::Coder;
-
-# XXX Do we want to make any guarantees about the appearance of this delimiter
-# in our encoded message?
-my $MAGIC_DELIM = "";
-my $END_CODE = "";
-
-#################################################################
-
-my @code_chars = ("", "", "", "", "", "");
-
-my $i = 0;
-foreach (@code_chars) {
-	  $code_chars_rev{$_} = $i++;
-}
+#package Irssi::Scripts::Instance::Tagger1;
 
 #################################################################
 
