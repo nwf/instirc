@@ -23,7 +23,8 @@ foreach my $ts (@test_strings) {
   print "ENCODED '", $ts, "' into hc ", $enc, " and tlv ", $tlv, "\n";
 }
 
-my $mesg = tlvs_to_message(\@tlvs);
+my $mesg_suffix = "This is some normal text.";
+my $mesg = tlvs_to_message(\@tlvs) . $mesg_suffix;
 
 dump_message($mc, $mesg);
 
@@ -44,8 +45,11 @@ sub def_cb ($$) {
     die "Unanticipated message of type $t: $v";
 }
 
-run_callbacks($mc,
+my ($res, $rest) = run_callbacks($mc,
               { 'default' => \&def_cb,
                 $known_types{'InstanceLabelHuffman1'} => \&ilf_cb,
               },
               $mesg );
+
+die unless $res eq 1;
+die unless $rest eq $mesg_suffix;

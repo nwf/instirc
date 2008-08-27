@@ -43,8 +43,21 @@ sub tlvs_to_message($){
 sub run_callbacks($$$) {
     my ($coder, $cbs, $msg) = @_;
 
-    return if (0 ne index $msg, $MESSAGE_START);
-    $msg = substr($msg, length $MESSAGE_START);
+    my $regex = "^$MESSAGE_START(["
+              . (join ("",@{$$coder{'code_chars'}}))
+              ."]+)$MESSAGE_END(.*)\$";
+
+    my $rest;
+        # Note how this regex works: it will greedily consume into
+        # what we think is the message, and may have to backtrack out
+        # to find MESSAGE_END.  It will never prematurely terminate
+        # the encoded message if it sees MESSAGE_END inside the message.
+    if ( $msg =~ /$regex/ ) {
+        $msg = $1;
+        $rest = $2;
+    } else {
+        return (0, $msg);
+    }
 
     while( $msg ne "" )
     {
@@ -68,7 +81,7 @@ sub run_callbacks($$$) {
         }
     }
 
-    return $msg eq "";
+    return ($msg eq "", $rest);
 }
 
 sub dump_message($$) {
