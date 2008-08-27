@@ -1,13 +1,17 @@
 use warnings;
+use strict;
 
 # use Irssi::Scripts::Instance::Mastercode; ### XXX
-use mastercode qw(lencode ldecode tencode_padded tdecode);
+require MasterCoder;
+use Definitions qw( @debug_code_chars );
+
+my $coder = MasterCoder->new(\@debug_code_chars);
 
 print "Checking T encoding machinery... \n";
 
 foreach my $i (0 .. 35) {
-    my $enc = tencode_padded($i,2);
-    my $dec = tdecode($enc);
+    my $enc = $coder->tencode_padded($i,2);
+    my $dec = $coder->tdecode($enc);
 
     print $i, " ", $enc, " ==> ", $dec, "\n" if $i % 10 == 0;
 
@@ -18,8 +22,8 @@ foreach my $i (0 .. 35) {
 print "Checking L encoding machinery... \n";
 
 foreach my $i (0 .. 1554) {
-    my $enc = lencode($i);
-    my ($deci, $decsize) = ldecode($enc);
+    my $enc = $coder->lencode($i);
+    my ($deci, $decsize) = $coder->ldecode($enc);
 
     print $i, " ", $enc, " (", length $enc, 
                ") ==> ", $deci, " (", $decsize, ")\n"
