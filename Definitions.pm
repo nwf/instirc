@@ -17,9 +17,12 @@ require Exporter;
 );
 
 #################################################################
+    # We specify these as numbers which MasterCoder will T-encode for
+    # us so that we can see them when we switch to using debug code
+    # sets.  Somewhat cheesy, I suppose, but nevertheless handy.
 
-our $MESSAGE_START = "";
-our $MESSAGE_END = "";
+our $MESSAGE_START = 21;    # Encodes as ^O^O using default_code_chars
+our $MESSAGE_END = 3;       # Encodes as ^O   using default_code_chars
 
 #################################################################
 

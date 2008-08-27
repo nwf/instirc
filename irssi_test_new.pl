@@ -24,12 +24,18 @@ $VERSION = 'irssi-test v0.01';
 require MasterCoder;
 require HuffmanCoder;
 use Definitions qw( %known_types
-                    @default_code_chars
-                    $instance_huffman_table1 );
-use Protoutils qw( tlv_wrap tlvs_to_message run_callbacks );
+                    @debug_code_chars @default_code_chars
+                    $instance_huffman_table1
+                    $MESSAGE_START $MESSAGE_END );
 
-my $mc = MasterCoder->new(\@default_code_chars);
-my $hc = HuffmanCoder->new($mc, $instance_huffman_table1);
+my $mc_dbg = MasterCoder->new(\@debug_code_chars,   $MESSAGE_START, $MESSAGE_END);
+my $mc_dfl = MasterCoder->new(\@default_code_chars, $MESSAGE_START, $MESSAGE_END);
+my $hc_dbg = HuffmanCoder->new($mc_dbg, $instance_huffman_table1);
+my $hc_dfl = HuffmanCoder->new($mc_dfl, $instance_huffman_table1);
+
+# XXX Allow some kind of runtime switch between these?
+my $mc = $mc_dfl;
+my $hc = $hc_dfl;
 
 #################################################################
 
@@ -44,7 +50,7 @@ sub test_filter_in {
   Irssi::print("Filter_in: text is $text; ($d, $d1, $d2, $d3)");
 
   my $instance_label = undef;
-  my ($res, $rest) = run_callbacks($mc,
+  my ($res, $rest) = $mc->tlv_run_callbacks(
               { $known_types{'InstanceLabelHuffman1'} => 
                 sub ($$) {
                   my ($t,$v) = @_;
@@ -82,7 +88,7 @@ sub test_filter_in_2 {
   Irssi::print("Filter_in_2: text is $text; ($d, $target)");
 
   my $instance_label = undef;
-  my ($res, $rest) = run_callbacks($mc,
+  my ($res, $rest) = $mc->tlv_run_callbacks(
               { $known_types{'InstanceLabelHuffman1'} => 
                 sub ($$) {
                   my ($t,$v) = @_;
@@ -123,7 +129,7 @@ sub test_filter_out {
   return if $a == 0 || $b == 0; # XXX
   Irssi::print("Filter_out: text is $text; ($a, $b)");
 
-  $text = tlvs_to_message([tlv_wrap($mc,
+  $text = $mc->tlvs_to_message([$mc->tlv_wrap(
                            $known_types{'InstanceLabelHuffman1'},
                            $hc->encode(Irssi::settings_get_str("current_instance")))
                            ] ) . $text . " \@";

@@ -3,9 +3,12 @@ use strict;
 
 # use Irssi::Scripts::Instance::Mastercode; ### XXX
 require MasterCoder;
-use Definitions qw( @debug_code_chars );
+use Definitions qw( @debug_code_chars $MESSAGE_START $MESSAGE_END );
 
-my $coder = MasterCoder->new(\@debug_code_chars);
+my $coder = MasterCoder->new(\@debug_code_chars, $MESSAGE_START, $MESSAGE_END );
+
+print "Some handy quick tests... \n";
+die unless $coder->tencode_padded($MESSAGE_START,2) eq "OO";
 
 print "Checking T encoding machinery... \n";
 

@@ -4,14 +4,16 @@ use strict;
 use Math::BaseCalc;
 use POSIX qw( floor );
 
-#package Irssi::Scripts::Instance::Mastercoder;
+#package Irssi::Scripts::Instance::MasterCoder;
 package MasterCoder;
 
 #################################################################
 
-sub new ($$) {
+sub new ($$$$) {
   my $class = shift @_;
   my $code_chars = shift @_;
+  my $msgprefix = shift @_;
+  my $msgsuffix = shift @_;
 
   return undef if not defined $code_chars;
 
@@ -23,7 +25,7 @@ sub new ($$) {
 
   my $tencoder = new Math::BaseCalc(digits => $code_chars);
 
-  bless {
+  my $self = bless {
     # Treat as read only exports, please
    'code_chars' => $code_chars,
    'code_chars_rev' => $code_chars_rev,
@@ -33,6 +35,11 @@ sub new ($$) {
     # ->tencode and ->tdecode instead.
    '_tencoder' => $tencoder,
   }, $class;
+
+  $$self{'msg_prefix'} = $self->tencode($msgprefix);
+  $$self{'msg_suffix'} = $self->tencode($msgsuffix);
+
+  return $self;
 }
 
 #################################################################
@@ -78,8 +85,8 @@ sub lencode ($$) {
 
     my $ccc = $$self{'code_chars_count'};
 
-    die "Can't encode numbers that big!" if $enclen >= $ccc - 1;
-
+    warn "Can't encode numbers that big!" if $enclen >= $ccc - 1;
+    return undef if $enclen >= $ccc - 1;
     return $self->tencode($enclen) if $in == 0;
 
     $in -= $self->_lenc_correction($enclen);
@@ -96,9 +103,9 @@ sub ldecode($$) {
 
     my $ccc = $$self{'code_chars_count'};
 
-    die "Can't decode numbers that big!" if $reallen >= $ccc - 1;
+    warn "Can't decode numbers that big!" if $reallen >= $ccc - 1;
 
-    return (undef, undef) if length $in < $reallen;
+    return (undef, undef) if length $in < $reallen or $reallen >= $ccc - 1;
 
     my $encval = substr($in, 1, $reallen);
 
@@ -108,6 +115,97 @@ sub ldecode($$) {
     return ( $realval, $reallen+1 )
 }
 
+#################################################################
+
+    # Takes an already encoded message (encoded somehow by the
+    # outside, e.g. with a HuffmanCoder or by using tencode or
+    # lencode directly) and wraps it inside a TLV record.
+sub tlv_wrap($$$) {
+    my ($self, $type, $message) = @_;
+
+    ### XXX We really ought ensure that the T-encoded forms are
+    ### exactly, rather than just at least, two symbols wide.
+
+    return $self->tencode_padded($type,2)
+         . $self->lencode(length $message)
+         . $message;
+}
+
+    # Takes a reference to an array of TLVs and concatenates them,
+    # framing the whole result as required by protocol.
+sub tlvs_to_message($$){
+    my ($self, $tlvs) = @_;
+
+    my $mesg = "";
+
+    foreach my $tlv (@$tlvs) {
+       $mesg = $mesg . $tlv; 
+    }
+
+    my $lenc = $self->lencode(length $mesg);
+
+    return $$self{'msg_prefix'}.$lenc.$mesg.$$self{'msg_suffix'};
+}
+
+sub tlv_run_callbacks($$$) {
+    my ($self, $cbs, $msg) = @_;
+
+        # Note how this regex works: it will greedily consume into
+        # what we think is the message, and may have to backtrack out
+        # to find msg_suffix.  It will never prematurely terminate
+        # the encoded message if it sees msg_prefix inside the message.
+    my $regex = "^".$$self{'msg_prefix'}."(["
+              . (join ("",@{$$self{'code_chars'}}))
+              ."]+)".$$self{'msg_suffix'}."(.*)\$";
+
+    my $rest;
+    if ( $msg =~ /$regex/ ) {
+        $rest = $2;
+            # That's meta-l, not the conductive solid.
+        my ($metal, $metallen) = $self->ldecode($1);
+        return (0, $msg) if (length $1) < $metallen + $metal;
+            # So here's an interesting connundrum.  It might be that
+            # the additional text we insert after ours looks like a
+            # message end.  Therefore, once we have extracted metal,
+            # we need to check that there's a msg_suffix where there
+            # should be.
+        if ((length $1) > $metallen + $metal) {
+            my $ssws = substr($1, $metallen + $metal);
+            return (0, $msg) if (index $ssws, $$self{'msg_suffix'});
+
+            # Now put what should be on $rest back on it.
+            $rest = substr($1, $metallen + $metal) . $rest;
+        }
+        $msg = substr($1, $metallen, $metal);
+    } else {
+        return (0, $msg);
+    }
+
+    while( $msg ne "" )
+    {
+        last if length $msg < 2;
+        my $tenc = substr($msg, 0, 2);
+        my $msg2 = substr($msg, 2); 
+        my $t = $self->tdecode($tenc);
+
+        my ($l, $lenclen) = $self->ldecode($msg2);
+        last if not defined $l;
+        my $msg3 = substr($msg2, $lenclen);
+
+        last if length $msg3 < $l;
+        my $v = substr($msg3, 0, $l);
+        $msg = substr($msg3, $l);
+
+        if (exists $$cbs{$t}) {
+            $$cbs{$t}($t, $v);
+        } elsif (exists $$cbs{'default'}) {
+            $$cbs{'default'}($t, $v);
+        }
+    }
+
+    return ($msg eq "", $rest);
+} 
+ 
 #################################################################
 
 1;
