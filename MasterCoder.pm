@@ -98,6 +98,8 @@ sub ldecode($$) {
 
     die "Can't decode numbers that big!" if $reallen >= $ccc - 1;
 
+    return (undef, undef) if length $in < $reallen;
+
     my $encval = substr($in, 1, $reallen);
 
     my $realval = $self->tdecode($encval);
