@@ -3,8 +3,8 @@ Instantiated IRC TODO
 	Add versioning to protocol and more correct splitting etc.
 
 	Finish factoring out coding stuff.
-		(note that MAGIC_ doesn't really belong with code, it just happend to
-		 make its way over with the copypasta)
+        Work continues.
+        Next up is to make a protocol engine atop MasterCoder.
 
 	Change current instance to be a per-channel value maintained in perl
 		Same for punt list
