@@ -125,6 +125,7 @@ sub _is_char($) {
 
 sub decode($$) {
   my ($self, $inst) = @_;
+  my $ccr = $$self{'ccr'};
 
   my $result = "";
   while ($inst ne "") {
@@ -132,7 +133,7 @@ sub decode($$) {
     while (!_is_char($tbl)) {
       my $code = substr($inst, 0, 1);
       $inst = substr($inst, 1);
-      $tbl = _decode_char($$self{'ccr'}, $code, $tbl);
+      $tbl = _decode_char($ccr, $code, $tbl);
     }
     $result .= $tbl;
   }
