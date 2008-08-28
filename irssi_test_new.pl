@@ -63,11 +63,9 @@ my $punts = { };
 
 #################################################################
 
-my $suppress = 0;
-my $suppress2 = 0;
-
+my $suppress_in = 0;
 sub inst_filter_in {
-  if ($suppress) { return; }
+  if ($suppress_in) { return; }
   my $sendmsg = 1;
 
     # Server is a Irssi::Irc::Server
@@ -99,16 +97,17 @@ sub inst_filter_in {
   if ($sendmsg) {
     my $emitted_signal = Irssi::signal_get_emitted();
 
-    $suppress = 1;
+    $suppress_in = 1;
     Irssi::signal_emit("$emitted_signal", $server, $text,
                         $src_nick, $src_host, $src_channel);
-    $suppress = 0;
+    $suppress_in = 0;
   }
   Irssi::signal_stop();
 }
 
+my $suppres_in_own_public = 0;
 sub inst_filter_in_own_public {
-  if ($suppress2) { return; } # XXX
+  if ($suppres_in_own_public) { return; } # XXX
   my $sendmsg = 1;
 
     # Server is a Irssi::Irc::Server
@@ -140,15 +139,16 @@ sub inst_filter_in_own_public {
   if ($sendmsg) {
     my $emitted_signal = Irssi::signal_get_emitted();
 
-    $suppress2 = 1;
+    $suppres_in_own_public = 1;
     Irssi::signal_emit("$emitted_signal", $server, $text, $target);
-    $suppress2 = 0;
+    $suppres_in_own_public = 0;
   }
   Irssi::signal_stop();
 }
 
+my $suppress_out = 0;
 sub inst_filter_out {
-  if ($suppress) { return; }
+  if ($suppress_out) { return; }
 
   my $emitted_signal = Irssi::signal_get_emitted();
 
@@ -174,10 +174,10 @@ sub inst_filter_out {
                            $instlabel)
                            ] ) . $text . " \@" if "" ne $instlabel;
 
-  $suppress = 1;
+  $suppress_out = 1;
   Irssi::signal_emit("$emitted_signal", $text, $server, $channel);
   Irssi::signal_stop();
-  $suppress = 0;
+  $suppress_out = 0;
 }
 
   #my $instlabel = Irssi::settings_get_str("current_instance");
@@ -241,7 +241,7 @@ sub cmd_instance {
 
   if ($inst eq "") {
     delete $$instance_labels{$$server{'address'}}{$$witem{'visible_name'}};
-    $witem->print("No longer sending instance tags.");
+    $witem->print("No longer using a default instance tag.");
     return;
   }
 
@@ -253,7 +253,7 @@ sub cmd_instance {
 
   $$instance_labels{$$server{'address'}}{$$witem{'visible_name'}} = $enc;
 
-  $witem->print("Instance is now '$inst'.");
+  $witem->print("Default instance is now '$inst'.");
 }
 #Irssi::settings_set_str('current_instance', $_[0]);
 
@@ -269,12 +269,41 @@ sub cmd_unpunt {
   unpunt_inst($$server{'address'},$$witem{'visible_name'},$inst);
 } 
 
+sub cmd_inst_say {
+  my ($args, $server, $witem) = @_;
+  return if not cmd_common_startup($server,$witem);
+
+  my @split = split /\s+/, $args, 2;
+  if (scalar @split != 2) {
+    $witem->print("Need at least an instance and a message.");
+    return;
+  }
+
+  my ($inst, $text) = @split;
+
+  my $instenc = $hc->encode($inst);
+  if (not defined $instenc) {
+    $witem->print("Instance '$inst' is unencodable; message not sent.");
+    return;
+  }
+
+  $text = $mc->tlvs_to_message([$mc->tlv_wrap(
+                           $known_types{'InstanceLabelHuffman1'},
+                           $instenc)
+                           ] ) . $text . " \@" if "" ne $inst;
+
+  $suppress_out = 1;
+  Irssi::signal_emit("send text", $text, $server, $witem);
+  $suppress_out = 0;
+}
+
 #################################################################
 
 Irssi::signal_add_first('message public', 'inst_filter_in');
 Irssi::signal_add_first('message own_public', 'inst_filter_in_own_public');
 Irssi::signal_add_first('send text', 'inst_filter_out');
 Irssi::command_bind('instance', 'cmd_instance');
+Irssi::command_bind('instsay', 'cmd_inst_say');
 Irssi::command_bind('punt', 'cmd_punt');
 Irssi::command_bind('unpunt', 'cmd_unpunt');
 
@@ -289,4 +318,4 @@ Irssi::command_bind('unpunt', 'cmd_unpunt');
     
 #################################################################
 
-Irssi::print("Instancing module v0.0.2 -- Explosions Still Extremely Probable");
+Irssi::print("Instancing module v0.0.3 -- Explosions Less Extremely Probable");
