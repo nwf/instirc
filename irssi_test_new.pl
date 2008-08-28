@@ -23,7 +23,7 @@ $VERSION = 'irssi-test v0.01';
 
 #################################################################
 
-my $DEBUG_FILTERS = 1;
+my $DEBUG_FILTERS = 0;
 
 # Very handy for debugging.
 #use Data::Dumper;
