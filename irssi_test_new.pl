@@ -21,17 +21,17 @@ $VERSION = 'irssi-test v0.01';
 
 #################################################################
 
-require MasterCoder;
-require HuffmanCoder;
-use Definitions qw( %known_types
+require Instance::MasterCoder;
+require Instance::HuffmanCoder;
+use Instance::Definitions qw( %known_types
                     @debug_code_chars @default_code_chars
                     $instance_huffman_table1
                     $MESSAGE_START $MESSAGE_END );
 
-my $mc_dbg = MasterCoder->new(\@debug_code_chars,   $MESSAGE_START, $MESSAGE_END);
-my $mc_dfl = MasterCoder->new(\@default_code_chars, $MESSAGE_START, $MESSAGE_END);
-my $hc_dbg = HuffmanCoder->new($mc_dbg, $instance_huffman_table1);
-my $hc_dfl = HuffmanCoder->new($mc_dfl, $instance_huffman_table1);
+my $mc_dbg = Instance::MasterCoder->new(\@debug_code_chars,   $MESSAGE_START, $MESSAGE_END);
+my $mc_dfl = Instance::MasterCoder->new(\@default_code_chars, $MESSAGE_START, $MESSAGE_END);
+my $hc_dbg = Instance::HuffmanCoder->new($mc_dbg, $instance_huffman_table1);
+my $hc_dfl = Instance::HuffmanCoder->new($mc_dfl, $instance_huffman_table1);
 
 # XXX Allow some kind of runtime switch between these?
 my $mc = $mc_dfl;

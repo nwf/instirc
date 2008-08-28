@@ -1,7 +1,6 @@
 use warnings;
 
-#package Irssi::Scripts::Instance::HuffmanCoder;
-package HuffmanCoder;
+package Instance::HuffmanCoder;
 
 #################################################################
 

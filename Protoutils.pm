@@ -1,8 +1,7 @@
 use warnings;
 use strict;
 
-#package Irssi::Scripts::Instance::Protoutils;
-package Protoutils;
+package Instance::Protoutils;
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 require Exporter;

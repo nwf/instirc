@@ -1,8 +1,7 @@
 use warnings;
 use strict;
 
-#package Irssi::Scripts::Instance::Definitions;
-package Definitions;
+package Instance::Definitions;
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 require Exporter;

@@ -4,8 +4,7 @@ use strict;
 use Math::BaseCalc;
 use POSIX qw( floor );
 
-#package Irssi::Scripts::Instance::MasterCoder;
-package MasterCoder;
+package Instance::MasterCoder;
 
 #################################################################
 

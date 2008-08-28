@@ -2,14 +2,13 @@ use warnings;
 use strict;
 #use Data::Dumper;
 
-# use Irssi::Scripts::Instance::Mastercode; ### XXX
-require MasterCoder;
-require HuffmanCoder;
-use Definitions qw( @debug_code_chars $instance_huffman_table1 
+require Instance::MasterCoder;
+require Instance::HuffmanCoder;
+use Instance::Definitions qw( @debug_code_chars $instance_huffman_table1 
                     $MESSAGE_START $MESSAGE_END );
 
-my $mastercoder = MasterCoder->new(\@debug_code_chars, $MESSAGE_START, $MESSAGE_END);
-my $huffmancoder = HuffmanCoder->new($mastercoder, $instance_huffman_table1);
+my $mastercoder = Instance::MasterCoder->new(\@debug_code_chars, $MESSAGE_START, $MESSAGE_END);
+my $huffmancoder = Instance::HuffmanCoder->new($mastercoder, $instance_huffman_table1);
 
 #print "Dumping encoding table:\n";
 #$huffmancoder->dump_encode_table();

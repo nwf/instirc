@@ -1,16 +1,16 @@
 use warnings;
 use strict;
 
-use Definitions qw( %known_types
+use Instance::Definitions qw( %known_types
                     @debug_code_chars
                     $instance_huffman_table1
                     $MESSAGE_START $MESSAGE_END );
-require MasterCoder;
-require HuffmanCoder;
-use Protoutils qw( dump_message );
+require Instance::MasterCoder;
+require Instance::HuffmanCoder;
+use Instance::Protoutils qw( dump_message );
 
-my $mc = MasterCoder->new(\@debug_code_chars, $MESSAGE_START, $MESSAGE_END);
-my $hc = HuffmanCoder->new($mc, $instance_huffman_table1);
+my $mc = Instance::MasterCoder->new(\@debug_code_chars, $MESSAGE_START, $MESSAGE_END);
+my $hc = Instance::HuffmanCoder->new($mc, $instance_huffman_table1);
 
 my @test_strings = ( "hi", "there", "coin", "test", "!@#\$&*.-=" );
 my @tlvs = ();
