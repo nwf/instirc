@@ -1,0 +1,5 @@
+These perl modules assume they exist in a directory called Instance.  The
+easiest way to make this fly, by far, is to symlink the place you got these
+sources as ~/.irssi/scripts/Instance.
+
+To run tests, you should "ln -s . Instance" too.
