@@ -2,6 +2,7 @@ use strict;
 use warnings;
 no warnings 'closure';
 
+
 use vars qw($VERSION %IRSSI);
 $| = 1;
 
@@ -11,13 +12,21 @@ $VERSION = 'irssi-test v0.01';
     authors => 'Glenn Willen and Nathaniel Filardo',
     contact => 'gwillen@nerdnet.org and nwf@cs.jhu.edu',
     name => 'irssi-instances',
-    description => 'Heh.',
+    description => 'Allows for labeled threads of conversation over IRC.',
     license => 'Public domain');
 
+# XXX
 # Sometimes, for some unknown reason, perl emits warnings like the following:
 #   Can't locate package Irssi::Nick for @Irssi::Irc::Nick::ISA
 # This package statement is here to suppress it.
 { package Irssi::Nick }
+
+#################################################################
+
+my $DEBUG_FILTERS = 0;
+
+# Very handy for debugging.
+#use Data::Dumper;
 
 #################################################################
 
@@ -39,15 +48,34 @@ my $hc = $hc_dfl;
 
 #################################################################
 
+    # Hash on server address, then on channel visible name.
+    # Stores the ENCODED form so we aren't chronically rehashing.
+    #
+    # i.e. (Irssi::Irc::Server){'address'}
+    # then (Irssi::Irc::Channel){'visible_name'}
+    #
+    # Set by /instance command, read by inst_filter_out
+my $instance_labels = { };
+
+    # Hash on server address, then on channel visible name.
+    # Presence in the resulting hash indicates punted status.
+my $punts = { };
+
+#################################################################
+
 my $suppress = 0;
 my $suppress2 = 0;
 
-sub test_filter_in {
+sub inst_filter_in {
   if ($suppress) { return; }
   my $sendmsg = 1;
 
-  my ($d, $text, $d1, $d2, $d3) = @_;
-  Irssi::print("Filter_in: text is $text; ($d, $d1, $d2, $d3)");
+    # Server is a Irssi::Irc::Server
+    # src_{nick,host,channel} are strings
+  my ($server, $text, $src_nick, $src_host, $src_channel) = @_;
+  Irssi::print("Filter_in: text is $text; "
+              ."($server, $src_nick, $src_host, $src_channel)")
+    if $DEBUG_FILTERS;
 
   my $instance_label = undef;
   my ($res, $rest) = $mc->tlv_run_callbacks(
@@ -60,9 +88,7 @@ sub test_filter_in {
               $text );
 
   if ($res and defined $instance_label) {
-    my @puntlist = split(",", Irssi::settings_get_str("punt_list"));
-    my $match = scalar grep { $_ eq $instance_label } @puntlist;
-    if ($match) {
+    if (inst_punted($$server{'address'}, $src_channel, $instance_label)) {
       $sendmsg = 0;
     }
     $text = "[$instance_label] $rest";
@@ -74,18 +100,21 @@ sub test_filter_in {
     my $emitted_signal = Irssi::signal_get_emitted();
 
     $suppress = 1;
-    Irssi::signal_emit("$emitted_signal", $d, $text, $d1, $d2, $d3);
+    Irssi::signal_emit("$emitted_signal", $server, $text,
+                        $src_nick, $src_host, $src_channel);
     $suppress = 0;
   }
   Irssi::signal_stop();
 }
 
-sub test_filter_in_2 {
+sub inst_filter_in_own_public {
   if ($suppress2) { return; } # XXX
   my $sendmsg = 1;
 
-  my ($d, $text, $target) = @_;
-  Irssi::print("Filter_in_2: text is $text; ($d, $target)");
+    # Server is a Irssi::Irc::Server
+  my ($server, $text, $target) = @_;
+  Irssi::print("Filter_in_2: text is $text; ($server, $target)")
+    if $DEBUG_FILTERS;
 
   my $instance_label = undef;
   my ($res, $rest) = $mc->tlv_run_callbacks(
@@ -98,7 +127,7 @@ sub test_filter_in_2 {
               $text );
 
   if ($res and defined $instance_label) {
-    if (inst_punted($instance_label)) {
+    if (inst_punted($$server{'address'}, $target, $instance_label)) {
       $sendmsg = 0;
     }
     # Chop off the " @" we may or may not have put at the end.
@@ -112,110 +141,147 @@ sub test_filter_in_2 {
     my $emitted_signal = Irssi::signal_get_emitted();
 
     $suppress2 = 1;
-    Irssi::signal_emit("$emitted_signal", $d, $text, $target);
+    Irssi::signal_emit("$emitted_signal", $server, $text, $target);
     $suppress2 = 0;
   }
   Irssi::signal_stop();
 }
 
-sub test_filter_out {
+sub inst_filter_out {
   if ($suppress) { return; }
 
   my $emitted_signal = Irssi::signal_get_emitted();
 
-  my ($text, $a, $b) = @_;
+    # Server is a Irssi::Irc::Server
+    # channel is a Irssi::Irc::Channel
+  my ($text, $server, $channel) = @_;
+
   # If they lack a server or a channel, trying to resend the message will cause
   # a crash, strangely. So we don't do that.
-  return if $a == 0 || $b == 0; # XXX
-  Irssi::print("Filter_out: text is $text; ($a, $b)");
+  return if $server == 0 || $channel == 0; # XXX
+  Irssi::print("Filter_out: text is $text; ($server, $channel)")
+    if $DEBUG_FILTERS;
+
+  my $instlabel = "";
+  if (exists $$instance_labels{$$server{'address'}}) {
+     $instlabel = $$instance_labels{$$server{'address'}}
+                                   {$$channel{'visible_name'}};
+     $instlabel = "" if not defined $instlabel;
+  }
 
   $text = $mc->tlvs_to_message([$mc->tlv_wrap(
                            $known_types{'InstanceLabelHuffman1'},
-                           $hc->encode(Irssi::settings_get_str("current_instance")))
-                           ] ) . $text . " \@";
+                           $instlabel)
+                           ] ) . $text . " \@" if "" ne $instlabel;
 
   $suppress = 1;
-  Irssi::signal_emit("$emitted_signal", $text, $a, $b);
+  Irssi::signal_emit("$emitted_signal", $text, $server, $channel);
   Irssi::signal_stop();
   $suppress = 0;
 }
 
-#sub current_instance {
-#  my ($item, $get_size_only) = @_;
-#
-#  $item->default_handler($get_size_only, "message", 0, 1);
-#}
+  #my $instlabel = Irssi::settings_get_str("current_instance");
 
 #################################################################
 
-sub inst_punted($) {
-  my ($inst) = @_;
+sub inst_punted($$$) {
+  my ($server,$channel,$inst) = @_;
 
-  my @puntlist = split(",", Irssi::settings_get_str("punt_list"));
-  my $match = scalar grep { $_ eq $inst } @puntlist;
-
-  return ($match > 0);
+  return 0 if not exists $$punts{$server};
+  return 0 if not exists $$punts{$server}{$channel};
+  return 1 if exists $$punts{$server}{$channel}{$inst};
+  return 0;
 }
 
-sub punt_inst($) {
-  my ($inst) = @_;
-
-  Irssi::print("punting: $inst");
-
-  if ($inst =~ /,/) {
-    Irssi::print("Warning: Can't punt comma!");
-    return;
-  }
-  my @puntlist = split(",", Irssi::settings_get_str('punt_list'));
-  push @puntlist, $inst;
-  Irssi::settings_set_str('punt_list', join(",", @puntlist));
+sub punt_inst($$$) {
+  my ($server,$channel,$inst) = @_;
+  $$punts{$server}{$channel}{$inst} = undef;
 }
 
-sub unpunt_inst($) {
-  my ($inst) = @_;
+# my @puntlist = split(",", Irssi::settings_get_str('punt_list'));
+# Irssi::settings_set_str('punt_list', join(",", @puntlist));
 
-  Irssi::print("unpunting: $inst");
-
-  if ($inst =~ /,/) {
-    Irssi::print("Warning: Can't unpunt comma!");
-    return;
-  }
-
-  my @puntlist = split(",", Irssi::settings_get_str('punt_list'));
-  @puntlist = grep { $_ ne $inst } @puntlist;
-  Irssi::settings_set_str('punt_list', join(",", @puntlist));
+sub unpunt_inst($$$) {
+  my ($server,$channel,$inst) = @_;
+  delete $$punts{$server}{$channel}{$inst};
 }
 
 #################################################################
+
+sub cmd_common_startup ($$) {
+  my ($server, $witem) = @_;
+
+  if (not defined $witem or $witem == 0) {
+    Irssi::print("Can't run without a window item");
+    return 0;
+  }
+
+  if (not defined $$witem{'visible_name'}) {
+    $witem->print("Can't run without a visible name");
+    return 0;
+  }
+
+  if (not defined $server or $server == 0) { 
+    $witem->print("Can't run without a server");
+    return 0;
+  }
+
+  if (not defined $$server{'address'}) {
+    $witem->print("Server has no address?");
+    return 0;
+  }
+
+  return 1;
+}
 
 sub cmd_instance {
-  pop @_;
-  pop @_; # XXX
-  Irssi::print("instance: $_[0]");
-  Irssi::settings_set_str('current_instance', $_[0]);
+  my ($inst, $server, $witem) = @_;
+
+  return if not cmd_common_startup($server,$witem);
+
+  if ($inst eq "") {
+    delete $$instance_labels{$$server{'address'}}{$$witem{'visible_name'}};
+    $witem->print("No longer sending instance tags.");
+    return;
+  }
+
+  my $enc = $hc->encode($inst);
+  if (not defined $enc) {
+    $witem->print("Can't set instance to '$inst'");
+    return;
+  }
+
+  $$instance_labels{$$server{'address'}}{$$witem{'visible_name'}} = $enc;
+
+  $witem->print("Instance is now '$inst'.");
 }
+#Irssi::settings_set_str('current_instance', $_[0]);
 
 sub cmd_punt {
-  my ($inst, $unk1, $unk2) = @_;
-  punt_inst($inst);
+  my ($inst, $server, $witem) = @_;
+  return if not cmd_common_startup($server,$witem);
+  punt_inst($$server{'address'},$$witem{'visible_name'},$inst);
 }
 
 sub cmd_unpunt {
-  my ($inst, $unk1, $unk2) = @_;
-  unpunt_inst($inst);
+  my ($inst, $server, $witem) = @_;
+  return if not cmd_common_startup($server,$witem);
+  unpunt_inst($$server{'address'},$$witem{'visible_name'},$inst);
 } 
 
 #################################################################
 
-Irssi::signal_add_first('message public', 'test_filter_in');
-Irssi::signal_add_first('message own_public', 'test_filter_in_2');
-Irssi::signal_add_first('send text', 'test_filter_out');
+Irssi::signal_add_first('message public', 'inst_filter_in');
+Irssi::signal_add_first('message own_public', 'inst_filter_in_own_public');
+Irssi::signal_add_first('send text', 'inst_filter_out');
 Irssi::command_bind('instance', 'cmd_instance');
 Irssi::command_bind('punt', 'cmd_punt');
 Irssi::command_bind('unpunt', 'cmd_unpunt');
-# XXX :-(
-Irssi::settings_add_str('lookandfeel', 'current_instance', "default");
-Irssi::settings_add_str('lookandfeel', 'punt_list', "");
+
+# The old way of storing these...
+#Irssi::settings_add_str('lookandfeel', 'current_instance', "default");
+#Irssi::settings_add_str('lookandfeel', 'punt_list', "");
+
 # XXX :-(
 #Irssi::statusbar_item_register('current_instance', undef, 'current_instance');
 #Irssi::statusbars_recreate_items();
@@ -223,4 +289,4 @@ Irssi::settings_add_str('lookandfeel', 'punt_list', "");
     
 #################################################################
 
-Irssi::print("Instancing module v0.0.1 -- Explosions Extremely Probable");
+Irssi::print("Instancing module v0.0.2 -- Explosions Still Extremely Probable");
