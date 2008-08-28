@@ -1,12 +1,9 @@
 Instantiated IRC TODO
+    Factor out punt list management to its own module?
+    Factor out instance label management to its own module?
+    Options to persist the punts list and or instance defaults?
+    Punts listing command (per channel, global)
+    Ability to /msg with instance label.
 
-	Add versioning to protocol and more correct splitting etc.
-
-	Finish factoring out coding stuff.
-        Work continues.
-        Next up is to make a protocol engine atop MasterCoder.
-
-	Change current instance to be a per-channel value maintained in perl
-		Same for punt list
-
-	
+Can we do better with the Perl @INC thing?
+    ("How did I get here?  I am not good with computer!")
