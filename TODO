@@ -1,4 +1,5 @@
 Instantiated IRC TODO
+    Remove code duplication between inst_filter_*?
     Factor out punt list management to its own module?
     Factor out instance label management to its own module?
     Options to persist the punts list and or instance defaults?

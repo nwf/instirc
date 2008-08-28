@@ -23,7 +23,7 @@ $VERSION = 'irssi-test v0.01';
 
 #################################################################
 
-my $DEBUG_FILTERS = 0;
+my $DEBUG_FILTERS = 1;
 
 # Very handy for debugging.
 #use Data::Dumper;
@@ -63,18 +63,7 @@ my $punts = { };
 
 #################################################################
 
-my $suppress_in = 0;
-sub inst_filter_in {
-  if ($suppress_in) { return; }
-  my $sendmsg = 1;
-
-    # Server is a Irssi::Irc::Server
-    # src_{nick,host,channel} are strings
-  my ($server, $text, $src_nick, $src_host, $src_channel) = @_;
-  Irssi::print("Filter_in: text is $text; "
-              ."($server, $src_nick, $src_host, $src_channel)")
-    if $DEBUG_FILTERS;
-
+sub demangle_message($) {
   my $instance_label = undef;
   my ($res, $rest) = $mc->tlv_run_callbacks(
               { $known_types{'InstanceLabelHuffman1'} => 
@@ -83,22 +72,49 @@ sub inst_filter_in {
                   $instance_label = $hc->decode($v);
                 }
               },
-              $text );
+              @_ );
+  return ($res, $rest, $instance_label);
+}
+
+sub demangle_and_check_punted($$$) {
+  my ( $srvname, $channame, $text ) = @_;
+  my $sendmsg = 1;
+
+  my ($res, $rest, $instance_label) = demangle_message($text);
 
   if ($res and defined $instance_label) {
-    if (inst_punted($$server{'address'}, $src_channel, $instance_label)) {
+    if (inst_punted($srvname, $channame, $instance_label)) {
       $sendmsg = 0;
     }
+    $rest =~ s/^(.*) \@$/$1/;
     $text = "[$instance_label] $rest";
   } else {
     $text = $rest;
   }
 
+  return ($sendmsg, $text);
+}
+
+my $suppress_in = 0;
+sub inst_filter_in {
+  if ($suppress_in) { return; }
+
+    # Server is a Irssi::Irc::Server
+    # src_{nick,host,channel} are strings
+  my ($server, $text, $src_nick, $src_host, $src_channel) = @_;
+  Irssi::print("Filter_in: text is $text; "
+              ."($server, $src_nick, $src_host, $src_channel)")
+    if $DEBUG_FILTERS;
+
+  my ($sendmsg, $newtext) = demangle_and_check_punted( $$server{'address'},
+                                                     $src_channel,
+                                                     $text );
+
   if ($sendmsg) {
     my $emitted_signal = Irssi::signal_get_emitted();
 
     $suppress_in = 1;
-    Irssi::signal_emit("$emitted_signal", $server, $text,
+    Irssi::signal_emit("$emitted_signal", $server, $newtext,
                         $src_nick, $src_host, $src_channel);
     $suppress_in = 0;
   }
@@ -108,49 +124,93 @@ sub inst_filter_in {
 my $suppres_in_own_public = 0;
 sub inst_filter_in_own_public {
   if ($suppres_in_own_public) { return; } # XXX
-  my $sendmsg = 1;
 
     # Server is a Irssi::Irc::Server
   my ($server, $text, $target) = @_;
-  Irssi::print("Filter_in_2: text is $text; ($server, $target)")
+  Irssi::print("Filter_in_own: text is $text; ($server, $target)")
     if $DEBUG_FILTERS;
 
-  my $instance_label = undef;
-  my ($res, $rest) = $mc->tlv_run_callbacks(
-              { $known_types{'InstanceLabelHuffman1'} => 
-                sub ($$) {
-                  my ($t,$v) = @_;
-                  $instance_label = $hc->decode($v);
-                }
-              },
-              $text );
-
-  if ($res and defined $instance_label) {
-    if (inst_punted($$server{'address'}, $target, $instance_label)) {
-      $sendmsg = 0;
-    }
-    # Chop off the " @" we may or may not have put at the end.
-    $rest =~ s/^(.*) \@$/$1/;
-    $text = "[$instance_label] $rest";
-  } else {
-    $text = $rest;
-  }
-
+  my ($sendmsg, $newtext) = demangle_and_check_punted( $$server{'address'},
+                                                       $target,
+                                                       $text );
   if ($sendmsg) {
     my $emitted_signal = Irssi::signal_get_emitted();
 
     $suppres_in_own_public = 1;
-    Irssi::signal_emit("$emitted_signal", $server, $text, $target);
+    Irssi::signal_emit("$emitted_signal", $server, $newtext, $target);
     $suppres_in_own_public = 0;
   }
   Irssi::signal_stop();
 }
 
+my $suppress_in_private = 0;
+sub inst_filter_in_private {
+  if ($suppress_in_private) { return; }
+
+    # Server is a Irssi::Irc::Server
+    # src_{nick,host,channel} are strings
+  my ($server, $text, $src_nick, $src_host) = @_;
+  Irssi::print("Filter_in_private: text is $text; "
+              ."($server, $src_nick, $src_host)")
+    if $DEBUG_FILTERS;
+
+  my ($sendmsg, $newtext) = demangle_and_check_punted( $$server{'address'},
+                                                     $src_nick,
+                                                     $text );
+
+  if ($sendmsg) {
+    my $emitted_signal = Irssi::signal_get_emitted();
+
+    $suppress_in_private = 1;
+    Irssi::signal_emit("$emitted_signal", $server, $newtext,
+                        $src_nick, $src_host);
+    $suppress_in_private = 0;
+  }
+  Irssi::signal_stop();
+}
+
+my $suppres_in_own_private = 0;
+sub inst_filter_in_own_private {
+  if ($suppres_in_own_private) { return; } # XXX
+
+    # Server is a Irssi::Irc::Server
+  my ($server, $text, $target) = @_;
+  Irssi::print("Filter_in_own_private: text is $text; ($server, $target)")
+    if $DEBUG_FILTERS;
+
+  my ($sendmsg, $newtext) = demangle_and_check_punted( $$server{'address'},
+                                                       $target,
+                                                       $text );
+  if ($sendmsg) {
+    my $emitted_signal = Irssi::signal_get_emitted();
+
+    $suppres_in_own_private = 1;
+    Irssi::signal_emit("$emitted_signal", $server, $newtext, $target);
+    $suppres_in_own_private= 0;
+  }
+  Irssi::signal_stop();
+}
+
+
+sub get_instance_label ($$) {
+  my ($srvname, $channame) = @_;
+  my $instlabel = undef;
+  if (exists $$instance_labels{$srvname}) {
+     $instlabel = $$instance_labels{$srvname}{$channame};
+  }
+  $instlabel = "" if not defined $instlabel;
+  return $instlabel;
+}
+
+sub generate_prefix($) {
+    $mc->tlvs_to_message([$mc->tlv_wrap(
+                           $known_types{'InstanceLabelHuffman1'},
+                           @_)]);
+}
+
 my $suppress_out = 0;
 sub inst_filter_out {
   if ($suppress_out) { return; }
-
-  my $emitted_signal = Irssi::signal_get_emitted();
 
     # Server is a Irssi::Irc::Server
     # channel is a Irssi::Irc::Channel
@@ -162,19 +222,12 @@ sub inst_filter_out {
   Irssi::print("Filter_out: text is $text; ($server, $channel)")
     if $DEBUG_FILTERS;
 
-  my $instlabel = "";
-  if (exists $$instance_labels{$$server{'address'}}) {
-     $instlabel = $$instance_labels{$$server{'address'}}
-                                   {$$channel{'visible_name'}};
-     $instlabel = "" if not defined $instlabel;
-  }
-
-  $text = $mc->tlvs_to_message([$mc->tlv_wrap(
-                           $known_types{'InstanceLabelHuffman1'},
-                           $instlabel)
-                           ] ) . $text . " \@" if "" ne $instlabel;
+  my $instlabel = get_instance_label($$server{'address'},
+                                     $$channel{'visible_name'});
+  $text = generate_prefix($instlabel) . $text . " \@" if "" ne $instlabel;
 
   $suppress_out = 1;
+  my $emitted_signal = Irssi::signal_get_emitted();
   Irssi::signal_emit("$emitted_signal", $text, $server, $channel);
   Irssi::signal_stop();
   $suppress_out = 0;
@@ -301,6 +354,8 @@ sub cmd_inst_say {
 
 Irssi::signal_add_first('message public', 'inst_filter_in');
 Irssi::signal_add_first('message own_public', 'inst_filter_in_own_public');
+Irssi::signal_add_first('message private', 'inst_filter_in_private');
+Irssi::signal_add_first('message own_private', 'inst_filter_in_own_private');
 Irssi::signal_add_first('send text', 'inst_filter_out');
 Irssi::command_bind('instance', 'cmd_instance');
 Irssi::command_bind('instsay', 'cmd_inst_say');
@@ -318,4 +373,4 @@ Irssi::command_bind('unpunt', 'cmd_unpunt');
     
 #################################################################
 
-Irssi::print("Instancing module v0.0.3 -- Explosions Less Extremely Probable");
+Irssi::print("Instancing module v0.0.4 -- Now With Fewer Catastrophic Failures");
