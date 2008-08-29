@@ -52,7 +52,7 @@ my $hc = $hc_dfl;
     # Stores the ENCODED form so we aren't chronically rehashing.
     #
     # i.e. (Irssi::Irc::Server){'address'}
-    # then (Irssi::Irc::Channel){'visible_name'}
+    # then (Irssi::Irc::Channel){'name'}
     #
     # Set by /instance command, read by inst_filter_out
 my $instance_labels = { };
@@ -269,7 +269,7 @@ sub cmd_common_startup ($$) {
     return 0;
   }
 
-  if (not defined $$witem{'visible_name'}) {
+  if (not defined $$witem{'name'}) {
     $witem->print("Can't run without a visible name");
     return 0;
   }
@@ -293,7 +293,7 @@ sub cmd_instance {
   return if not cmd_common_startup($server,$witem);
 
   if ($inst eq "") {
-    delete $$instance_labels{$$server{'address'}}{$$witem{'visible_name'}};
+    delete $$instance_labels{$$server{'address'}}{$$witem{'name'}};
     $witem->print("No longer using a default instance tag.");
     return;
   }
@@ -304,7 +304,7 @@ sub cmd_instance {
     return;
   }
 
-  $$instance_labels{$$server{'address'}}{$$witem{'visible_name'}} = $enc;
+  $$instance_labels{$$server{'address'}}{$$witem{'name'}} = $enc;
 
   $witem->print("Default instance is now '$inst'.");
 }
@@ -313,13 +313,13 @@ sub cmd_instance {
 sub cmd_punt {
   my ($inst, $server, $witem) = @_;
   return if not cmd_common_startup($server,$witem);
-  punt_inst($$server{'address'},$$witem{'visible_name'},$inst);
+  punt_inst($$server{'address'},$$witem{'name'},$inst);
 }
 
 sub cmd_unpunt {
   my ($inst, $server, $witem) = @_;
   return if not cmd_common_startup($server,$witem);
-  unpunt_inst($$server{'address'},$$witem{'visible_name'},$inst);
+  unpunt_inst($$server{'address'},$$witem{'name'},$inst);
 } 
 
 sub cmd_inst_say {
