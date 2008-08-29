@@ -11,6 +11,7 @@ Missing UI Features
     Options to persist the punts list and or instance defaults?
     Punts listing command (per channel, global)
     Ability to /msg or /query with instance label.
+    Ability to /me with an instance label.
     The ability to filter instances out of the channel windows to their
         own windows.
 
