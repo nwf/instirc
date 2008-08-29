@@ -33,6 +33,10 @@ sub new ($$$$) {
     # Treat as private; you shouldn't use this; use
     # ->tencode and ->tdecode instead.
    '_tencoder' => $tencoder,
+
+    # Treat as private, though you may set this
+    # once at construction if you really feel like it.
+   '_lbias' => 1,
   }, $class;
 
   $$self{'msg_prefix'} = $self->tencode($msgprefix);
@@ -67,7 +71,7 @@ sub _lenc_body_len($$) {
     my $ccc = $$self{'code_chars_count'};
 
     return 0 if $in == 0;
-    return POSIX::floor( log(($ccc-1)*$in + 1) / log($ccc) );
+    return POSIX::floor( log(($ccc-1)*$in + 1) / log($ccc) ) - $$self{'_lbias'};
 }
 
 sub _lenc_correction($) {
@@ -79,18 +83,23 @@ sub _lenc_correction($) {
 
 sub lencode ($$) {
     my $self = shift @_;
-    my $in = shift @_;
+    my $in = (shift @_);
+    $in += $self->_lenc_correction($$self{'_lbias'});
     my $enclen = $self->_lenc_body_len($in);
 
     my $ccc = $$self{'code_chars_count'};
 
     warn "Can't encode numbers that big!" if $enclen >= $ccc - 1;
     return undef if $enclen >= $ccc - 1;
-    return $self->tencode($enclen) if $in == 0;
 
-    $in -= $self->_lenc_correction($enclen);
+    $in -= $self->_lenc_correction($enclen+$$self{'_lbias'});
 
-    return $self->tencode($enclen) . $self->tencode_padded($in, $enclen);
+    return $self->tencode($enclen) if $in == 0
+                                  and $enclen == 0
+                                  and $$self{'_lbias'} == 0;
+
+    return $self->tencode($enclen)
+         . $self->tencode_padded($in, $enclen+$$self{'_lbias'});
 }
 
 sub ldecode($$) {
@@ -103,15 +112,26 @@ sub ldecode($$) {
     my $ccc = $$self{'code_chars_count'};
 
     warn "Can't decode numbers that big!" if $reallen >= $ccc - 1;
-
     return (undef, undef) if length $in < $reallen or $reallen >= $ccc - 1;
+
+    $reallen += $$self{'_lbias'};
 
     my $encval = substr($in, 1, $reallen);
 
     my $realval = $self->tdecode($encval);
     $realval += $self->_lenc_correction($reallen);
+    $realval -= $self->_lenc_correction($$self{'_lbias'});
 
     return ( $realval, $reallen+1 )
+}
+
+sub llargest($) {
+    my $self = shift @_;
+
+    my $ccc = $$self{'code_chars_count'};
+    return $self->_lenc_correction($ccc + $$self{'_lbias'} - 1)
+         - $self->_lenc_correction($$self{'_lbias'})
+         - 1;
 }
 
 #################################################################

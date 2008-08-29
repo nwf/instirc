@@ -11,7 +11,7 @@ die unless $coder->tencode_padded($MESSAGE_START,2) eq "OO";
 
 print "Checking T encoding machinery... \n";
 
-foreach my $i (0 .. 35) {
+foreach my $i (0 .. 24) {
     my $enc = $coder->tencode_padded($i,2);
     my $dec = $coder->tdecode($enc);
 
@@ -21,19 +21,32 @@ foreach my $i (0 .. 35) {
     die if $dec != $i;
 }
 
-print "Checking L encoding machinery... \n";
+print "Checking L encoding machinery for a variety of biases... \n";
+print "Some warnings are normal!  We have to test that llargest()\n";
+print "returns the right things.\n";
 
-foreach my $i (0 .. 1554) {
-    my $enc = $coder->lencode($i);
-    my ($deci, $decsize) = $coder->ldecode($enc);
+foreach my $bias ( 0 .. 2 ) {
 
-    print $i, " ", $enc, " (", length $enc, 
-               ") ==> ", $deci, " (", $decsize, ")\n"
-               if $i % 100 == 0;
+    $$coder{'_lbias'} = $bias;
+    my $limit = $coder->llargest();
+    print "BIAS ",$bias," LIMIT ",$limit,"\n";
 
-    die if $deci != $i;
-    die if $decsize != length $enc;
+    foreach my $i (0 .. $limit) {
+        my $enc = $coder->lencode($i);
+        my ($deci, $decsize) = $coder->ldecode($enc . "_____");
 
+        die if not defined $enc;
+
+        print "  ", $i, " ", $enc, " (", length $enc, 
+                   ") ==> ", $deci, " (", $decsize, ")\n"
+                   if $i % 100 == 0;
+
+        die if $deci != $i;
+        die if $decsize != length $enc;
+    }
+
+    my $enc_undef = $coder->lencode($limit+1);
+    die if defined $enc_undef;
 }
 
-
+print "Successfully completed.\n";
