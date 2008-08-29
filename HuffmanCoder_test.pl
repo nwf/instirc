@@ -18,7 +18,11 @@ my $huffmancoder = Instance::HuffmanCoder->new($mastercoder, $instance_huffman_t
 
 #print Dumper($huffmancoder);
 
-my @test_strings = ( "hi", "there", "coin", "test", "!@#\$&*.-=" );
+my @test_strings = ( "abcdefghijklmnopqrstuvwxyz"
+                   , "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                   , "1234567890!@#\$%^&*()"
+                   , ",<.>/?;:'\"[]{}=+-_`~\\|"
+                   );
 
 foreach my $ts (@test_strings) {
   my $enc = $huffmancoder->encode($ts);
