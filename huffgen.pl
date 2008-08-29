@@ -3,7 +3,7 @@ $Data::Dumper::Indent = 0;
 
 my $DEBUG = 1;
 my $PROGRESS = 1;
-my $NARY=6;
+my $NARY=5;
 
 my %count;
 my %icount;
@@ -18,7 +18,7 @@ while (<>) {
 		$totalcount++;
 
 		print STDERR " Consumed $totalcount symbols...\r"
-			if $PROGRESS and ($totalcount % 1000 == 0);
+			if $PROGRESS and ($totalcount % 10000 == 0);
 	}
 }
 
@@ -75,6 +75,10 @@ while (numleft() > 1) {
 	my $cv = 0;
 	my @cs = ();
 
+    if ( numleft() < $NARY ) {
+        warn "Incomplete toplevel tree with ",numleft()," nodes \n";
+    }
+
 	while ($i < $NARY and numleft() > 0) {
 		my ($nn, $nv) = @{grabnext()};
 
@@ -92,7 +96,11 @@ while (numleft() > 1) {
 
 	print STDERR "GROUPING ($cn)\@$cv\n" if $DEBUG;
 
-	push @secondary, ["($cn)", $cv];
+    if (length $cn == 5) {
+        push @secondary, [" \"$cn\" ", $cv];
+    } else {
+	    push @secondary, [" [ $cn ] ", $cv];
+    }
 }
 
 print @{$secondary[0]}[0]."\n";
