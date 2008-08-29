@@ -1,10 +1,19 @@
-Instantiated IRC TODO
+Protocol Implementation Core
+    Doesn't buy into instance continuation messages, since we have
+    yet to observe a need.
+
+Irssi Module Core
     Remove code duplication between inst_filter_*?
-    Factor out punt list management to its own module?
-    Factor out instance label management to its own module?
+    Factor out punt list management to its own frontend-agnostic module?
+    Factor out instance label ^     ^   ^   ^      ^       ^       ^
+
+Missing UI Features
     Options to persist the punts list and or instance defaults?
     Punts listing command (per channel, global)
-    Ability to /msg with instance label.
+    Ability to /msg or /query with instance label.
+    The ability to filter instances out of the channel windows to their
+        own windows.
 
-Can we do better with the Perl @INC thing?
-    ("How did I get here?  I am not good with computer!")
+Perl Questions
+    Can we do better with the Perl @INC thing?
+        ("How did I get here?  I am not good with computer!")

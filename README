@@ -1,5 +1,24 @@
+This depends on Math::BaseCalc from CPAN.  This is conveniently packaged in
+Debian as libmath-basecalc-perl.
+
 These perl modules assume they exist in a directory called Instance.  The
 easiest way to make this fly, by far, is to symlink the place you got these
-sources as ~/.irssi/scripts/Instance.
+sources as ~/.irssi/scripts/Instance.  Then you can tell irssi to
+"/script load Instance/IrssiInterface.pl" and everything should be fine.
 
-To run tests, you should "ln -s . Instance" too.
+To run tests in the current directory, you should "ln -s . Instance" too.
+
+The UI is currently rather spartan, defining the following commands:
+    /instance [label]      sets the default instance for the current window
+                           to label, or stops sending default tags if label
+                           is omitted.
+
+    /instsay label message sends the message with the given instance label
+                           but does not set or alter the default.
+
+    /punt   label     Causes the current window to not display messages
+                      tagged with instance "label".
+
+    /unpunt label     Undoes the action of the punt command.
+
+See TODO for things if you want to help out.

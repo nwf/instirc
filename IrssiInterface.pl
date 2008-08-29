@@ -373,4 +373,4 @@ Irssi::command_bind('unpunt', 'cmd_unpunt');
     
 #################################################################
 
-Irssi::print("Instancing module v0.0.4 -- Now With Fewer Catastrophic Failures");
+Irssi::print("Instancing module v0.0.5 -- No Longer Named 'test'");
