@@ -34,7 +34,7 @@ require Instance::MasterCoder;
 require Instance::HuffmanCoder;
 use Instance::Definitions qw( %known_types
                     @debug_code_chars @default_code_chars
-                    $instance_huffman_table1
+                    $instance_huffman_table1 $instance_suffix
                     $MESSAGE_START $MESSAGE_END );
 
 my $mc_dbg = Instance::MasterCoder->new(\@debug_code_chars,   $MESSAGE_START, $MESSAGE_END);
@@ -86,7 +86,7 @@ sub demangle_and_check_punted($$$) {
     if (inst_punted($srvname, $channame, $instance_label)) {
       $sendmsg = 0;
     }
-    $rest =~ s/^(.*) \@$/$1/;
+    $rest =~ s/^(.*)$instance_suffix$/$1/;
     $text = "[$instance_label] $rest";
   } else {
     $text = $rest;
@@ -223,8 +223,8 @@ sub inst_filter_out {
     if $DEBUG_FILTERS;
 
   my $instlabel = get_instance_label($$server{'address'},
-                                     $$channel{'visible_name'});
-  $text = generate_prefix($instlabel) . $text . " \@" if "" ne $instlabel;
+                                     $$channel{'name'});
+  $text = generate_prefix($instlabel) . $text . $instance_suffix if "" ne $instlabel;
 
   $suppress_out = 1;
   my $emitted_signal = Irssi::signal_get_emitted();
@@ -343,7 +343,7 @@ sub cmd_inst_say {
   $text = $mc->tlvs_to_message([$mc->tlv_wrap(
                            $known_types{'InstanceLabelHuffman1'},
                            $instenc)
-                           ] ) . $text . " \@" if "" ne $inst;
+                           ] ) . $text . $instance_suffix if "" ne $inst;
 
   $suppress_out = 1;
   Irssi::signal_emit("send text", $text, $server, $witem);
