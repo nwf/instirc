@@ -202,10 +202,18 @@ sub get_instance_label ($$) {
   return $instlabel;
 }
 
-sub generate_prefix($) {
-    $mc->tlvs_to_message([$mc->tlv_wrap(
+sub generate_outgoing($$) {
+    my ($text, $instlabel) = @_;
+
+    my $framedlabel = $mc->tlvs_to_message([$mc->tlv_wrap(
                            $known_types{'InstanceLabelHuffman1'},
-                           @_)]);
+                           $instlabel)]);
+
+    if (Irssi::settings_get_bool("instance_tlvs_at_start")) {
+      $text = $framedlabel . $text . $instance_suffix;
+    } else {
+      $text = $text . $instance_suffix . $framedlabel;
+    }
 }
 
 my $suppress_out = 0;
@@ -224,7 +232,8 @@ sub inst_filter_out {
 
   my $instlabel = get_instance_label($$server{'address'},
                                      $$channel{'name'});
-  $text = generate_prefix($instlabel) . $text . $instance_suffix if "" ne $instlabel;
+
+  $text = generate_outgoing($text, $instlabel) if "" ne $instlabel;
 
   $suppress_out = 1;
   my $emitted_signal = Irssi::signal_get_emitted();
@@ -340,10 +349,7 @@ sub cmd_inst_say {
     return;
   }
 
-  $text = $mc->tlvs_to_message([$mc->tlv_wrap(
-                           $known_types{'InstanceLabelHuffman1'},
-                           $instenc)
-                           ] ) . $text . $instance_suffix if "" ne $inst;
+  $text =  generate_outgoing($text, $instenc) if "" ne $inst;
 
   $suppress_out = 1;
   Irssi::signal_emit("send text", $text, $server, $witem);
@@ -361,6 +367,12 @@ Irssi::command_bind('instance', 'cmd_instance');
 Irssi::command_bind('instsay', 'cmd_inst_say');
 Irssi::command_bind('punt', 'cmd_punt');
 Irssi::command_bind('unpunt', 'cmd_unpunt');
+
+# NOTICE: This is transitional for experimentation with the protocol and may
+# disappear soon.  MasterCoder is aware to look at both ends of strings
+# passed to tlv_run_callbacks, so this option controls which position we use
+# when generating.
+Irssi::settings_add_bool('instance','instance_tlvs_at_start', 1);
 
 # The old way of storing these...
 #Irssi::settings_add_str('lookandfeel', 'current_instance', "default");

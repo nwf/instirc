@@ -177,28 +177,42 @@ sub tlv_run_callbacks($$$) {
               . (join ("",@{$$self{'code_chars'}}))
               ."]+)".$$self{'msg_suffix'}."(.*)\$";
 
-    my $rest;
-    if ( $msg =~ /$regex/ ) {
-        $rest = $2;
-            # That's meta-l, not the conductive solid.
-        my ($metal, $metallen) = $self->ldecode($1);
-        return (0, $msg) if (length $1) < $metallen + $metal;
-            # So here's an interesting connundrum.  It might be that
-            # the additional text we insert after ours looks like a
-            # message end.  Therefore, once we have extracted metal,
-            # we need to check that there's a msg_suffix where there
-            # should be.
-        if ((length $1) > $metallen + $metal) {
-            my $ssws = substr($1, $metallen + $metal);
-            return (0, $msg) if (index $ssws, $$self{'msg_suffix'});
+        # This regex is a little different.  It nongreedly consumes the
+        # ordinary text and will repeatedly backtrack in the presence of
+        # multiple message prefix sigils.
+    my $regex2 = "^(.*?)"
+               . $$self{'msg_prefix'}."(["
+               . (join ("",@{$$self{'code_chars'}}))
+               ."]+)".$$self{'msg_suffix'}."\$";
 
-            # Now put what should be on $rest back on it.
-            $rest = substr($1, $metallen + $metal) . $rest;
-        }
-        $msg = substr($1, $metallen, $metal);
+    my ($tlvstr, $rest) = (undef, undef);
+    if ( $msg =~ /$regex/ ) {
+        $tlvstr = $1;
+        $rest = $2;
+    } elsif ( $msg =~ /$regex2/ ) {
+        $tlvstr = $2;
+        $rest = $1;
     } else {
         return (0, $msg);
     }
+
+      # That's meta-l, not the conductive solid.
+    my ($metal, $metallen) = $self->ldecode($tlvstr);
+    return (0, $msg) if (length $tlvstr) < $metallen + $metal;
+      # So here's an interesting connundrum.  It might be that
+      # the additional text we insert after ours looks like a
+      # message end.  Therefore, once we have extracted metal,
+      # we need to check that there's a msg_suffix where there
+      # should be.
+    if ((length $tlvstr) > $metallen + $metal) {
+      my $ssws = substr($tlvstr, $metallen + $metal);
+      return (0, $msg) if (index $ssws, $$self{'msg_suffix'});
+
+      # Now put what should be on $rest back on it.
+      $rest = substr($tlvstr, $metallen + $metal) . $rest;
+    }
+    $msg = substr($tlvstr, $metallen, $metal);
+
 
     while( $msg ne "" )
     {
