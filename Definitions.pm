@@ -53,7 +53,7 @@ our $instance_huffman_table1 = [
   ]
 ];
 
-our $instance_suffix = " `";
+our $instance_suffix = "";
 
 #################################################################
 1;
