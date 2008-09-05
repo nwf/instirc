@@ -26,7 +26,7 @@ $VERSION = 'irssi-test v0.01';
 my $DEBUG_FILTERS = 0;
 
 # Very handy for debugging.
-#use Data::Dumper;
+use Data::Dumper;
 
 #################################################################
 
@@ -47,24 +47,64 @@ my $mc = $mc_dfl;
 my $hc = $hc_dfl;
 
 #################################################################
+    # XXX irssi doesn't give us any unique identifier for objects; names and
+    # so on are subject to change and fascinatingly the updates don't always
+    # include enough information to update your own data tables...
+    #
+    # Rather than track renames and play the resulting guessing game and all
+    # that, we just grab the smuggled-out pointer value that irssi uses to
+    # read things back in from Perl.  Things would be much easier if we
+    # could use use irssi's per-object per-module data tables
+    #
+    # Gross, isn't it? :)
 
-    # Hash on server address, then on channel visible name.
+    # Hash on irssi unique value of window item.
     # Stores the ENCODED form so we aren't chronically rehashing.
     #
     # i.e. (Irssi::Irc::Server){'address'}
     # then (Irssi::Irc::Channel){'name'}
     #
     # Set by /instance command, read by inst_filter_out
+    # Scanned on "window item destroy" events to drop obsoleted records.
 my $instance_labels = { };
 
-    # Hash on server address, then on channel visible name.
-    # Presence in the resulting hash indicates punted status.
-my $punts = { };
+    # Hash on irssi unique value of window item.
+    # Result is a hash where:
+    #   The instance does not exist as a key => default display
+    #   The instance exists but has value undef => punted
+    #   The instance exists and has value =>
+    #       value is a window item object (not identifier!) which should
+    #       receive the message.
+    #
+    # Scanned on "window item destroy" events to drop obsoleted records,
+    #     but it's not enough to scan only in the forward direction.
+    #     See the below map.
+my $routes = { };
+
+    # The reverse of the above map, kinda.
+    #   $$routes{$a}{$b}{'_irssi'} == $c implies that 
+    #   $$routes_invmap{$$c{'_irssi'}}{$b} == $a
+    #
+    # This is used to handle the "window item remove" signal so
+    # we can correctly drop references, rather than risk crashing
+    # irssi. :)
+    #
+    # XXX We wish we could hook "window item destroy" instead, but
+    # that doesn't produce a signal.  As it is, anybody being fancy
+    # with window items stands a good chance of confusing our core.
+    # This may be grounds to patch irssi upstream.
+    #
+my $routes_invmap = { };
 
 #################################################################
 
-sub demangle_message($) {
+sub demangle_and_check_routes($$$) {
+  my ( $srv, $channame, $text ) = @_;
+
+  my $target = undef;
   my $instance_label = undef;
+    # Last one wins approach to instance labels.  Sending more than one
+    # really ought be an error.
   my ($res, $rest) = $mc->tlv_run_callbacks(
               { $known_types{'InstanceLabelHuffman1'} => 
                 sub ($$) {
@@ -72,27 +112,39 @@ sub demangle_message($) {
                   $instance_label = $hc->decode($v);
                 }
               },
-              @_ );
-  return ($res, $rest, $instance_label);
-}
-
-sub demangle_and_check_punted($$$) {
-  my ( $srvname, $channame, $text ) = @_;
-  my $sendmsg = 1;
-
-  my ($res, $rest, $instance_label) = demangle_message($text);
+              $text );
 
   if ($res and defined $instance_label) {
-    if (inst_punted($srvname, $channame, $instance_label)) {
-      $sendmsg = 0;
-    }
     $rest =~ s/^(.*)$instance_suffix$/$1/;
-    $text = "[$instance_label] $rest";
-  } else {
-    $text = $rest;
+
+    # Find window item given server and name
+    my $witem = $srv->window_item_find($channame);
+
+    if (not defined $witem) {
+        Irssi::print("No witem while decoding?");
+        return (undef, undef, $text);
+    }
+
+    # override channel name; this may undefine the target.
+    if (inst_routed($witem, $instance_label)) {
+        Irssi::print("Instance $instance_label is routed...");
+
+        # See if we have a target.
+        my $rtarget = inst_route_target($witem, $instance_label);
+        if(defined $rtarget) {
+
+            Irssi::print("Instance $instance_label has target...");
+            # Override target 
+            $target = $$rtarget{'name'} 
+        } else {
+            $rest = undef;
+        }
+    }
+
+    return ($target, $instance_label, $rest);
   }
 
-  return ($sendmsg, $text);
+  return (undef, undef, $text);
 }
 
 my $suppress_in = 0;
@@ -106,18 +158,28 @@ sub inst_filter_in {
               ."($server, $src_nick, $src_host, $src_channel)")
     if $DEBUG_FILTERS;
 
-  my ($sendmsg, $newtext) = demangle_and_check_punted( $$server{'address'},
-                                                     $src_channel,
-                                                     $text );
+  my ($newtarget, $ilabel, $newtext)
+    = demangle_and_check_routes( $server,
+                                 $src_channel,
+                                 $text );
 
-  if ($sendmsg) {
-    my $emitted_signal = Irssi::signal_get_emitted();
-
-    $suppress_in = 1;
-    Irssi::signal_emit("$emitted_signal", $server, $newtext,
-                        $src_nick, $src_host, $src_channel);
-    $suppress_in = 0;
+  if (not defined $newtext) {
+    Irssi::signal_stop();
+    return;
   }
+
+  if (defined $newtarget) {
+    $src_channel = $newtarget;
+  } elsif (defined $ilabel) {
+    $newtext = "[$ilabel] $newtext";
+  }
+
+  my $emitted_signal = Irssi::signal_get_emitted();
+
+  $suppress_in = 1;
+  Irssi::signal_emit("$emitted_signal", $server, $newtext,
+                      $src_nick, $src_host, $src_channel);
+  $suppress_in = 0;
   Irssi::signal_stop();
 }
 
@@ -130,16 +192,27 @@ sub inst_filter_in_own_public {
   Irssi::print("Filter_in_own: text is $text; ($server, $target)")
     if $DEBUG_FILTERS;
 
-  my ($sendmsg, $newtext) = demangle_and_check_punted( $$server{'address'},
-                                                       $target,
-                                                       $text );
-  if ($sendmsg) {
-    my $emitted_signal = Irssi::signal_get_emitted();
+  my ($newtarget, $ilabel, $newtext)
+    = demangle_and_check_routes( $server,
+                                 $target,
+                                 $text );
 
-    $suppres_in_own_public = 1;
-    Irssi::signal_emit("$emitted_signal", $server, $newtext, $target);
-    $suppres_in_own_public = 0;
+  if (not defined $newtext) {
+    Irssi::signal_stop();
+    return;
   }
+
+  if (defined $newtarget) {
+    $target = $newtarget;
+  } elsif (defined $ilabel) {
+    $newtext = "[$ilabel] $newtext";
+  }
+
+  my $emitted_signal = Irssi::signal_get_emitted();
+
+  $suppres_in_own_public = 1;
+  Irssi::signal_emit("$emitted_signal", $server, $newtext, $target);
+  $suppres_in_own_public = 0;
   Irssi::signal_stop();
 }
 
@@ -154,18 +227,27 @@ sub inst_filter_in_private {
               ."($server, $src_nick, $src_host)")
     if $DEBUG_FILTERS;
 
-  my ($sendmsg, $newtext) = demangle_and_check_punted( $$server{'address'},
-                                                     $src_nick,
-                                                     $text );
+  my ($newtarget, $ilabel, $newtext)
+    = demangle_and_check_routes( $server,
+                                 $src_nick,
+                                 $text );
 
-  if ($sendmsg) {
-    my $emitted_signal = Irssi::signal_get_emitted();
-
-    $suppress_in_private = 1;
-    Irssi::signal_emit("$emitted_signal", $server, $newtext,
-                        $src_nick, $src_host);
-    $suppress_in_private = 0;
+  if (not defined $newtext) {
+    Irssi::signal_stop();
+    return;
   }
+
+  # XXX note no spport for routing messages here.
+  if (defined $ilabel) {
+    $newtext = "[$ilabel] $newtext";
+  }
+
+  my $emitted_signal = Irssi::signal_get_emitted();
+
+  $suppress_in_private = 1;
+  Irssi::signal_emit("$emitted_signal", $server, $newtext,
+                      $src_nick, $src_host);
+  $suppress_in_private = 0;
   Irssi::signal_stop();
 }
 
@@ -178,16 +260,31 @@ sub inst_filter_in_own_private {
   Irssi::print("Filter_in_own_private: text is $text; ($server, $target)")
     if $DEBUG_FILTERS;
 
-  my ($sendmsg, $newtext) = demangle_and_check_punted( $$server{'address'},
-                                                       $target,
-                                                       $text );
-  if ($sendmsg) {
-    my $emitted_signal = Irssi::signal_get_emitted();
+  my ($newtarget, $ilabel, $newtext)
+    = demangle_and_check_punted( $server,
+                                 $target,
+                                 $text );
 
-    $suppres_in_own_private = 1;
-    Irssi::signal_emit("$emitted_signal", $server, $newtext, $target);
-    $suppres_in_own_private= 0;
+  if (not defined $newtext) {
+    Irssi::signal_stop();
+    return;
   }
+
+  # XXX note no spport for routing messages here.
+  if (defined $ilabel) {
+    $newtext = "[$ilabel] $newtext";
+  }
+
+  my $emitted_signal = Irssi::signal_get_emitted();
+
+  $suppres_in_own_private = 1;
+  ### XXX known bug, should send to newtarget, but see the above
+  ### inst_filter_in_private for why I'm not quite sure how to do this.
+  ### (is $src_nick the corresponding thing for $target?)
+  ###
+  ### Also listed in TODO as a Known Bug.
+  Irssi::signal_emit("$emitted_signal", $server, $newtext, $target);
+  $suppres_in_own_private= 0;
   Irssi::signal_stop();
 }
 
@@ -246,26 +343,55 @@ sub inst_filter_out {
 
 #################################################################
 
-sub inst_punted($$$) {
-  my ($server,$channel,$inst) = @_;
-
-  return 0 if not exists $$punts{$server};
-  return 0 if not exists $$punts{$server}{$channel};
-  return 1 if exists $$punts{$server}{$channel}{$inst};
+sub inst_routed($$) {
+  my ($witem,$inst) = @_;
+  return 0 if not exists $$routes{$$witem{'_irssi'}};
+  return 1 if     exists $$routes{$$witem{'_irssi'}}{$inst};
   return 0;
 }
 
-sub punt_inst($$$) {
-  my ($server,$channel,$inst) = @_;
-  $$punts{$server}{$channel}{$inst} = undef;
+sub inst_route_target($$) {
+  my ($witem,$inst) = @_;
+  return undef if not exists $$routes{$$witem{'_irssi'}};
+  return $$routes{$$witem{'_irssi'}}{$inst};
+}
+
+sub route_inst($$$$) {
+  my ($witem,$inst,$target) = @_;
+  $$routes{$$witem{'_irssi'}}{$inst} = $target;
+  if ( not exists $$routes_invmap{$$target{'_irssi'}} )
+  {
+    $$routes_invmap{$$target{'_irssi'}} = { $inst => $$witem{'_irssi'} } ;
+  } else {
+    $$routes_invmap{$$target{'_irssi'}}{$inst} = $$witem{'_irssi'};
+  }
+}
+
+sub punt_inst($$) {
+  my ($witem,$inst) = @_;
+  $$routes{$$witem{'_irssi'}}{$inst} = undef;
 }
 
 # my @puntlist = split(",", Irssi::settings_get_str('punt_list'));
 # Irssi::settings_set_str('punt_list', join(",", @puntlist));
 
-sub unpunt_inst($$$) {
-  my ($server,$channel,$inst) = @_;
-  delete $$punts{$server}{$channel}{$inst};
+    # This also deals with unpunting.
+sub unroute_inst($$) {
+  my ($witem,$inst) = @_;
+
+  return if not inst_routed($witem,$inst);
+  my $target = inst_route_target($witem,$inst);
+
+  delete $$routes{$$witem{'_irssi'}}{$inst};
+
+  if (scalar keys %{$$routes{$$witem{'_irssi'}}} == 0) { 
+    delete $$routes{$$witem{'_irssi'}}
+  }
+
+  if (defined $target) {
+    # Delete reverse map
+    delete $$routes_invmap{$$target{'_irssi'}}{$inst};
+  }
 }
 
 #################################################################
@@ -322,13 +448,13 @@ sub cmd_instance {
 sub cmd_punt {
   my ($inst, $server, $witem) = @_;
   return if not cmd_common_startup($server,$witem);
-  punt_inst($$server{'address'},$$witem{'name'},$inst);
+  punt_inst($witem,$inst);
 }
 
 sub cmd_unpunt {
   my ($inst, $server, $witem) = @_;
   return if not cmd_common_startup($server,$witem);
-  unpunt_inst($$server{'address'},$$witem{'name'},$inst);
+  unroute_inst($witem,$inst);
 } 
 
 sub cmd_inst_say {
@@ -356,7 +482,25 @@ sub cmd_inst_say {
   $suppress_out = 0;
 }
 
+sub cmd_isplit {
+  my ($args, $server, $witem) = @_;
+  return if not cmd_common_startup($server,$witem);
+
+  # TODO Create new window
+  # TODO Bind as target
+}
+
+sub cmd_debug_routes {
+  my ($args, $server, $witem) = @_;
+
+  Irssi::print (Dumper($routes));
+  Irssi::print (Dumper($routes_invmap));
+}
+
 #################################################################
+
+# TODO Hook window item remove
+
 
 Irssi::signal_add_first('message public', 'inst_filter_in');
 Irssi::signal_add_first('message own_public', 'inst_filter_in_own_public');
@@ -366,6 +510,7 @@ Irssi::signal_add_first('send text', 'inst_filter_out');
 Irssi::command_bind('instance', 'cmd_instance');
 Irssi::command_bind('instsay', 'cmd_inst_say');
 Irssi::command_bind('punt', 'cmd_punt');
+Irssi::command_bind('debugroutes', 'cmd_debug_routes');
 Irssi::command_bind('unpunt', 'cmd_unpunt');
 
 # NOTICE: This is transitional for experimentation with the protocol and may
@@ -385,4 +530,4 @@ Irssi::settings_add_bool('instance','instance_tlvs_at_start', 1);
     
 #################################################################
 
-Irssi::print("Instancing module v0.1.1 -- No Bells, No Ticks");
+Irssi::print("Instancing module v0.1.2 -- More Mess Inside");

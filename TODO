@@ -18,3 +18,9 @@ Missing UI Features
 Perl Questions
     Can we do better with the Perl @INC thing?
         ("How did I get here?  I am not good with computer!")
+
+Known Bugs
+
+  We don't yet support routing, just punting, for private messages.  However,
+  the frontend currently doesn't distinguish these, leading to the potential
+  for confusion.
