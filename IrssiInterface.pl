@@ -423,15 +423,17 @@ sub cmd_common_startup ($$) {
 }
 
 sub cmd_instance {
-  my ($inst, $server, $witem) = @_;
+  my ($args, $server, $witem) = @_;
 
   return if not cmd_common_startup($server,$witem);
 
-  if ($inst eq "") {
+  if ($args eq "") {
     delete $$instance_labels{$$server{'address'}}{$$witem{'name'}};
     $witem->print("No longer using a default instance tag.");
     return;
   }
+
+  my ($inst, $msg) = split(/ /, $args, 2);
 
   my $enc = $hc->encode($inst);
   if (not defined $enc) {
@@ -442,6 +444,10 @@ sub cmd_instance {
   $$instance_labels{$$server{'address'}}{$$witem{'name'}} = $enc;
 
   $witem->print("Default instance is now '$inst'.");
+
+  if ($msg ne "") {
+    cmd_inst_say($args, $server, $witem);
+  }
 }
 #Irssi::settings_set_str('current_instance', $_[0]);
 
