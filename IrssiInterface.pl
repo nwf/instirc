@@ -7,7 +7,10 @@ use vars qw($VERSION %IRSSI);
 $| = 1;
 
 use Irssi;
-$VERSION = 'irssi-test v0.01';
+$VERSION = '0.1.2';
+my $extended_version = "Instancing module v$VERSION";
+my $humorous_version = "$extended_version -- More Mess Inside";
+
 %IRSSI = (
     authors => 'Glenn Willen and Nathaniel Filardo',
     contact => 'gwillen@nerdnet.org and nwf@cs.jhu.edu',
@@ -505,8 +508,10 @@ sub cmd_debug_routes {
 
 #################################################################
 
-# TODO Hook window item remove
+Irssi::settings_set_str("ctcp_version_reply",
+    'irssi v$J - running on $sysname $sysarch with '.$extended_version);
 
+# TODO Hook window item remove
 
 Irssi::signal_add_first('message public', 'inst_filter_in');
 Irssi::signal_add_first('message own_public', 'inst_filter_in_own_public');
@@ -536,4 +541,4 @@ Irssi::settings_add_bool('instance','instance_tlvs_at_start', 1);
     
 #################################################################
 
-Irssi::print("Instancing module v0.1.2 -- More Mess Inside");
+Irssi::print($humorous_version);
