@@ -264,7 +264,7 @@ sub inst_filter_in_own_private {
     if $DEBUG_FILTERS;
 
   my ($newtarget, $ilabel, $newtext)
-    = demangle_and_check_punted( $server,
+    = demangle_and_check_routes( $server,
                                  $target,
                                  $text );
 
