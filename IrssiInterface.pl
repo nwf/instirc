@@ -458,7 +458,7 @@ sub cmd_instance {
 
   $witem->print("Default instance is now '$inst'.");
 
-  if ($msg ne "") {
+  if (defined $msg && $msg ne "") {
     cmd_inst_say($args, $server, $witem);
   }
 }
