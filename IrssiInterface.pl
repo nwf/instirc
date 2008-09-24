@@ -106,6 +106,8 @@ sub demangle_and_check_routes($$$) {
 
   my $target = undef;
   my $instance_label = undef;
+  my $warn_initial = 0;
+  my @unknowns = ( );
     # Last one wins approach to instance labels.  Sending more than one
     # really ought be an error.
   my ($res, $rest) = $mc->tlv_run_callbacks(
@@ -114,8 +116,20 @@ sub demangle_and_check_routes($$$) {
                   my ($t,$v) = @_;
                   $instance_label = $hc->decode($v);
                 }
+              , 'warn_initial' => sub () { $warn_initial = 1; }
+              , 'default' => 
+                sub ($$) { my ($t,$v) = @_; push @unknowns, $t; }
               },
               $text );
+
+  if (Irssi::settings_get_bool("instance_warn_initial") and $warn_initial) {
+    Irssi::print("Instancer: warning: $channame sends initial message");
+  }
+
+  if (Irssi::settings_get_bool("instance_warn_unknown")
+      and (scalar @unknowns) != 0) {
+    Irssi::print("Instancer: warning: unknown message types " . (join " ",@unknowns));
+  }
 
   if ($res and defined $instance_label) {
     $rest =~ s/^(.*)$instance_suffix$/$1/;
@@ -520,11 +534,12 @@ Irssi::command_bind('punt', 'cmd_punt');
 Irssi::command_bind('debugroutes', 'cmd_debug_routes');
 Irssi::command_bind('unpunt', 'cmd_unpunt');
 
-# NOTICE: This is transitional for experimentation with the protocol and may
-# disappear soon.  MasterCoder is aware to look at both ends of strings
-# passed to tlv_run_callbacks, so this option controls which position we use
-# when generating.
-Irssi::settings_add_bool('instance','instance_tlvs_at_start', 1);
+    # Set to recieve warnings about initial TLV streams
+    # (older protocol)
+Irssi::settings_add_bool('instance','instance_warn_initial', 1);
+    # Set to recieve warnings about unknown TLV types
+    # (newer protocols)
+Irssi::settings_add_bool('instance','instance_warn_unknown', 1);
 
 # The old way of storing these...
 #Irssi::settings_add_str('lookandfeel', 'current_instance', "default");
