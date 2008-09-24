@@ -309,11 +309,7 @@ sub generate_outgoing($$) {
                            $known_types{'InstanceLabelHuffman1'},
                            $instlabel)]);
 
-    if (Irssi::settings_get_bool("instance_tlvs_at_start")) {
-      $text = $framedlabel . $text . $instance_suffix;
-    } else {
-      $text = $text . $instance_suffix . $framedlabel;
-    }
+    $text = $text . $instance_suffix . $framedlabel;
 }
 
 my $suppress_out = 0;
