@@ -173,6 +173,11 @@ sub tlv_run_callbacks($$$) {
         # what we think is the message, and may have to backtrack out
         # to find msg_suffix.  It will never prematurely terminate
         # the encoded message if it sees msg_prefix inside the message.
+        #
+        # This form is obsolete but is still parsed for backwards
+        # compatibility.  To emphasize the obsolescense, if this
+        # callback fires and a callback named 'warn_initial' is specified,
+        # that callback will be called (with no arguments).
     my $regex = "^".$$self{'msg_prefix'}."(["
               . (join ("",@{$$self{'code_chars'}}))
               ."]+)".$$self{'msg_suffix'}."(.*)\$";
@@ -189,6 +194,9 @@ sub tlv_run_callbacks($$$) {
     if ( $msg =~ /$regex/ ) {
         $tlvstr = $1;
         $rest = $2;
+        if (exists $$cbs{'warn_initial'}) {
+            $$cbs{'warn_initial'}();
+        }
     } elsif ( $msg =~ /$regex2/ ) {
         $tlvstr = $2;
         $rest = $1;
