@@ -1,12 +1,3 @@
-WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING  
-Revisions 0.1.0 and up use a fundamentally different encoding technique, after
-early prototypes discovered that the original encoding was erroneous.  The
-original encoding has been withdrawn altogether and since there were no
-speakers of it outside the beta group, the protocol identifiers have NOT been
-change in the transition to the new protocol.
-This warning will disappear eventually.
-WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING  
-
 This depends on Math::BaseCalc from CPAN.  This is conveniently packaged in
 Debian as libmath-basecalc-perl.  To fetch from CPAN if your OS doesn't
 provide CPAN packages, do
