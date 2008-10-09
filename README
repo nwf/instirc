@@ -23,4 +23,8 @@ The UI is currently rather spartan, defining the following commands:
 
     /unpunt label     Undoes the action of the punt command.
 
+    /say    message   [Not defined by this script]
+                      will send the message to the current window without
+                      an instance label, even if a default is set.
+
 See TODO for things if you want to help out.
