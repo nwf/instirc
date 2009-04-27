@@ -29,13 +29,16 @@ our @debug_code_chars = ("B", "C", "O", "V", "_");
 
 #################################################################
     # This assigns canonical names to the T-encoded type tags.
-    # The range 0 to 4 is RESERVED FOR PROTOCOL EXTENSIONS
-    # The range 7 to 19 is RESERVED FOR GLOBAL ASSIGNMENT
-    # The range 20 to 25 is RESERVED FOR EXPERIMENTS
+    # The range 0 to 4 is   RESERVED FOR PROTOCOL EXTENSIONS
+    # The range 6 to 14 is  RESERVED FOR GLOBAL ASSIGNMENT
+    # The range 18 to 19 is RESERVED FOR GLOBAL ASSIGNMENT
+    # The range 20 to 24 is RESERVED FOR LOCAL EXPERIMENTS
 
 our %known_types = (
-                    'InstanceLabelHuffman1' => 0x5,
-                    'InstanceContinuationMessage' => 0x6,
+                    'InstanceLabelHuffman1' => 5,
+                    'OTRAdvertisement' => 15,
+                    'MiscMessageFlags' => 16,
+                    'MSFTComicChat' => 17,
                   );
 
 #################################################################
@@ -53,7 +56,7 @@ our $instance_huffman_table1 = [
   ]
 ];
 
-our $instance_suffix = "";
+our $instance_suffix = ""; # Oh backtick, how we miss thee
 
 #################################################################
 1;
