@@ -37,7 +37,21 @@ sub new ($$) {
 
 #################################################################
 
-sub encode($$) {
+sub encode_aa($$) {
+    my ($self, $msg) = @_;
+    chomp $msg;
+    return $self->{'tc'}->encode($1) if ($msg =~ /^# Appears as (.*)$/i);
+    return "";
+}
+
+sub decode_aa($$) {
+    my ($self, $msg) = @_;
+    return "# Appears as " . ($self->{'tc'}->decode($msg));
+}
+
+#################################################################
+
+sub encode_hash($$) {
     my ($self, $msg) = @_;
 
     my $mc = $$self{'mc'};
@@ -80,7 +94,7 @@ sub encode($$) {
     
 }
 
-sub decode($$) {
+sub decode_hash($$) {
     my ($self, $msg) = @_;
 
     my $mc = $self->{'mc'};

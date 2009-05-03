@@ -59,4 +59,10 @@ our $instance_huffman_table1 = [
 our $instance_suffix = ""; # Oh backtick, how we miss thee
 
 #################################################################
+
+our $MSCC_TYPE_AA = 0;
+our $MSCC_TYPE_HASH = 1;
+
+#################################################################
+
 1;
