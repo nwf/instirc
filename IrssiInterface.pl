@@ -107,6 +107,7 @@ sub demangle_and_check_routes($$$) {
   my $target = undef;
   my $instance_label = undef;
   my $warn_initial = 0;
+  my $is_bot = 0;
   my @unknowns = ( );
     # Last one wins approach to instance labels.  Sending more than one
     # really ought be an error.
@@ -115,6 +116,12 @@ sub demangle_and_check_routes($$$) {
                 sub ($$) {
                   my ($t,$v) = @_;
                   $instance_label = $hc->decode($v);
+                }
+              , $known_types{'MiscMessageFlags'} => 
+                sub ($$) {
+                  my ($t,$v) = @_;
+                  my $dec = $mc->tdecode($v);
+                  $is_bot = $dec & 1 if ($dec > 2);
                 }
               , 'warn_initial' => sub () { $warn_initial = 1; }
               , 'default' => 
@@ -129,6 +136,11 @@ sub demangle_and_check_routes($$$) {
   if (Irssi::settings_get_bool("instance_warn_unknown")
       and (scalar @unknowns) != 0) {
     Irssi::print("Instancer: warning: unknown message types " . (join " ",@unknowns));
+  }
+
+  # XXX This is pretty hacky.
+  if ($res and $is_bot) {
+    $rest = "{bot} " . $rest;
   }
 
   if ($res and defined $instance_label) {
