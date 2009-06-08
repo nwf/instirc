@@ -6,7 +6,7 @@ provide CPAN packages, do
 These perl modules assume they exist in a directory called Instance.  The
 easiest way to make this fly, by far, is to symlink the place you got these
 sources as ~/.irssi/scripts/Instance.  Then you can tell irssi to
-"/script load Instance/IrssiInterface.pl" and everything should be fine.
+"/script load Instance/IrssiInstancer.pl" and everything should be fine.
 
 To run tests in the current directory, you should "ln -s . Instance" too.
 
