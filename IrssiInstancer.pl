@@ -7,9 +7,9 @@ use vars qw($VERSION %IRSSI);
 $| = 1;
 
 use Irssi;
-$VERSION = '0.1.4';
+$VERSION = '0.1.5';
 my $extended_version = "Instancing module v$VERSION";
-my $humorous_version = "$extended_version -- A wild T=16 appears!";
+my $humorous_version = "$extended_version -- Spaced Out";
 
 %IRSSI = (
     authors => 'Glenn Willen and Nathaniel Filardo',
