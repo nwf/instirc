@@ -37,7 +37,7 @@ require Instance::MasterCoder;
 require Instance::HuffmanCoder;
 use Instance::Definitions qw( %known_types
                     @debug_code_chars @default_code_chars
-                    $instance_huffman_table1 $instance_suffix
+                    $instance_huffman_table1
                     $MESSAGE_START $MESSAGE_END );
 
 my $mc_dbg = Instance::MasterCoder->new(\@debug_code_chars,   $MESSAGE_START, $MESSAGE_END);
@@ -144,8 +144,6 @@ sub demangle_and_check_routes($$$) {
   }
 
   if ($res and defined $instance_label) {
-    $rest =~ s/^(.*)$instance_suffix$/$1/;
-
     # Find window item given server and name
     my $witem = $srv->window_item_find($channame);
 
@@ -335,7 +333,7 @@ sub generate_outgoing($$) {
                            $known_types{'InstanceLabelHuffman1'},
                            $instlabel)]);
 
-    $text = $text . $instance_suffix . $framedlabel;
+    $text = $text . " ". $framedlabel;
 }
 
 my $suppress_out = 0;
