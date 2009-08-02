@@ -174,10 +174,7 @@ sub demangle_and_check_routes($$$) {
   return (undef, undef, $text);
 }
 
-my $suppress_in = 0;
 sub inst_filter_in {
-  if ($suppress_in) { return; }
-
     # Server is a Irssi::Irc::Server
     # src_{nick,host,channel} are strings
   my ($server, $text, $src_nick, $src_host, $src_channel) = @_;
@@ -201,19 +198,10 @@ sub inst_filter_in {
     $newtext = "[$ilabel] $newtext";
   }
 
-  my $emitted_signal = Irssi::signal_get_emitted();
-
-  $suppress_in = 1;
-  Irssi::signal_emit("$emitted_signal", $server, $newtext,
-                      $src_nick, $src_host, $src_channel);
-  $suppress_in = 0;
-  Irssi::signal_stop();
+  Irssi::signal_continue($server, $newtext, $src_nick, $src_host, $src_channel);
 }
 
-my $suppres_in_own_public = 0;
 sub inst_filter_in_own_public {
-  if ($suppres_in_own_public) { return; } # XXX
-
     # Server is a Irssi::Irc::Server
   my ($server, $text, $target) = @_;
   Irssi::print("Filter_in_own: text is $text; ($server, $target)")
@@ -235,18 +223,10 @@ sub inst_filter_in_own_public {
     $newtext = "[$ilabel] $newtext";
   }
 
-  my $emitted_signal = Irssi::signal_get_emitted();
-
-  $suppres_in_own_public = 1;
-  Irssi::signal_emit("$emitted_signal", $server, $newtext, $target);
-  $suppres_in_own_public = 0;
-  Irssi::signal_stop();
+  Irssi::signal_continue($server, $newtext, $target);
 }
 
-my $suppress_in_private = 0;
 sub inst_filter_in_private {
-  if ($suppress_in_private) { return; }
-
     # Server is a Irssi::Irc::Server
     # src_{nick,host,channel} are strings
   my ($server, $text, $src_nick, $src_host) = @_;
@@ -269,19 +249,10 @@ sub inst_filter_in_private {
     $newtext = "[$ilabel] $newtext";
   }
 
-  my $emitted_signal = Irssi::signal_get_emitted();
-
-  $suppress_in_private = 1;
-  Irssi::signal_emit("$emitted_signal", $server, $newtext,
-                      $src_nick, $src_host);
-  $suppress_in_private = 0;
-  Irssi::signal_stop();
+  Irssi::signal_continue($server, $newtext, $src_nick, $src_host);
 }
 
-my $suppres_in_own_private = 0;
 sub inst_filter_in_own_private {
-  if ($suppres_in_own_private) { return; } # XXX
-
     # Server is a Irssi::Irc::Server
   my ($server, $text, $target) = @_;
   Irssi::print("Filter_in_own_private: text is $text; ($server, $target)")
@@ -302,17 +273,12 @@ sub inst_filter_in_own_private {
     $newtext = "[$ilabel] $newtext";
   }
 
-  my $emitted_signal = Irssi::signal_get_emitted();
-
-  $suppres_in_own_private = 1;
   ### XXX known bug, should send to newtarget, but see the above
   ### inst_filter_in_private for why I'm not quite sure how to do this.
   ### (is $src_nick the corresponding thing for $target?)
   ###
   ### Also listed in TODO as a Known Bug.
-  Irssi::signal_emit("$emitted_signal", $server, $newtext, $target);
-  $suppres_in_own_private= 0;
-  Irssi::signal_stop();
+  Irssi::signal_continue($server, $newtext, $target);
 }
 
 
@@ -338,8 +304,7 @@ sub generate_outgoing($$) {
 
 my $suppress_out = 0;
 sub inst_filter_out {
-  if ($suppress_out) { return; }
-
+  return if $suppress_out;
     # Server is a Irssi::Irc::Server
     # channel is a Irssi::Irc::Channel
   my ($text, $server, $channel) = @_;
@@ -355,11 +320,7 @@ sub inst_filter_out {
 
   $text = generate_outgoing($text, $instlabel) if "" ne $instlabel;
 
-  $suppress_out = 1;
-  my $emitted_signal = Irssi::signal_get_emitted();
-  Irssi::signal_emit("$emitted_signal", $text, $server, $channel);
-  Irssi::signal_stop();
-  $suppress_out = 0;
+  Irssi::signal_continue($text, $server, $channel);
 }
 
   #my $instlabel = Irssi::settings_get_str("current_instance");
