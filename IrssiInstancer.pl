@@ -439,12 +439,30 @@ sub cmd_punt {
   my ($inst, $server, $witem) = @_;
   return if not cmd_common_startup($server,$witem);
   punt_inst($witem,$inst);
+  $witem->print("Punted instance $inst");
 }
 
 sub cmd_unpunt {
   my ($inst, $server, $witem) = @_;
   return if not cmd_common_startup($server,$witem);
-  unroute_inst($witem,$inst);
+
+  if ($inst eq "") {
+    # Special handling to unpunt all punted instances on $witem.
+    # We don't unroute instances here.
+
+    # If there's nothing here, do nothing.
+    return if not exists $$routes{$$witem{'_irssi'}};
+
+    foreach $inst (keys %{$$routes{$$witem{'_irssi'}}}) {
+      if (not defined $$routes{$$witem{'_irssi'}}{$inst}) {
+        unroute_inst($witem,$inst)
+      }
+    }
+    $witem->print("Unpunted all punted instances...");
+  } else {
+    unroute_inst($witem,$inst);
+    $witem->print("Unpunted instance $inst");
+  }
 } 
 
 sub cmd_inst_say {
@@ -487,6 +505,23 @@ sub cmd_debug_routes {
   Irssi::print (Dumper($routes_invmap));
 }
 
+sub cmd_inst_list {
+  my ($args, $server, $witem) = @_;
+
+  if (not exists $$routes{$$witem{'_irssi'}}) {
+    $witem->print("No instances are specially handled here.");
+    return;
+  }
+
+  foreach my $inst (keys %{$$routes{$$witem{'_irssi'}}}) {
+    if (defined $$routes{$$witem{'_irssi'}}{$inst}) {
+        $witem->print("$inst is routed."); # XXX Be more descriptive?
+    } else {
+        $witem->print("$inst is punted.");
+    }
+  }
+}
+
 #################################################################
 
 Irssi::settings_set_str("ctcp_version_reply",
@@ -501,9 +536,12 @@ Irssi::signal_add_first('message own_private', 'inst_filter_in_own_private');
 Irssi::signal_add_first('send text', 'inst_filter_out');
 Irssi::command_bind('instance', 'cmd_instance');
 Irssi::command_bind('instsay', 'cmd_inst_say');
-Irssi::command_bind('punt', 'cmd_punt');
-Irssi::command_bind('debugroutes', 'cmd_debug_routes');
-Irssi::command_bind('unpunt', 'cmd_unpunt');
+Irssi::command_bind('instpunt', 'cmd_punt');
+Irssi::command_bind('instunpunt', 'cmd_unpunt');
+#Irssi::command_bind('instsplit', 'cmd_isplit');
+
+Irssi::command_bind('instlist', 'cmd_inst_list');
+Irssi::command_bind('instdbgr', 'cmd_debug_routes');
 
     # Set to recieve warnings about initial TLV streams
     # (older protocol)
