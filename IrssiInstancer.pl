@@ -121,6 +121,7 @@ sub demangle_and_check_routes($$$) {
                 sub ($$) {
                   my ($t,$v) = @_;
                   my $dec = $mc->tdecode($v);
+                  # XXX This knowledge ought be in Definitions.pm
                   $is_bot = $dec & 1 if ($dec > 2);
                 }
               , 'warn_initial' => sub () { $warn_initial = 1; }
@@ -138,22 +139,24 @@ sub demangle_and_check_routes($$$) {
     Irssi::print("Instancer: warning: unknown message types " . (join " ",@unknowns));
   }
 
-  # XXX This is pretty hacky.
-  if ($res and $is_bot) {
-    $rest = "{bot} " . $rest;
-  }
+  if ($res) {
+    
+    # XXX This is pretty hacky.
+    if ($is_bot) {
+        $rest = "{bot} " . $rest;
+    }
+    
+    if (defined $instance_label) {
+      # Find window item given server and name
+      my $witem = $srv->window_item_find($channame);
 
-  if ($res and defined $instance_label) {
-    # Find window item given server and name
-    my $witem = $srv->window_item_find($channame);
-
-    if (not defined $witem) {
+      if (not defined $witem) {
         Irssi::print("No witem while decoding?");
         return (undef, undef, $text);
-    }
+      }
 
-    # override channel name; this may undefine the target.
-    if (inst_routed($witem, $instance_label)) {
+      # override channel name; this may undefine the target.
+      if (inst_routed($witem, $instance_label)) {
         Irssi::print("Instance $instance_label is routed...");
 
         # See if we have a target.
@@ -166,9 +169,12 @@ sub demangle_and_check_routes($$$) {
         } else {
             $rest = undef;
         }
-    }
+      }
 
-    return ($target, $instance_label, $rest);
+      return ($target, $instance_label, $rest);
+    } else {
+      return (undef, undef, $rest);
+    } 
   }
 
   return (undef, undef, $text);
