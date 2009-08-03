@@ -1,3 +1,5 @@
+use strict;
+
 use Instance::Definitions qw( %known_types
                     @debug_code_chars
                     $instance_huffman_table1
@@ -12,19 +14,23 @@ my $hc = Instance::HuffmanCoder->new($mc, $instance_huffman_table1);
 while(my $text = <>) {
   chomp $text;
 
-  my $enc = $hc->encode($text);
-  my $tlv = $mc->tlv_wrap( $known_types{'InstanceLabelHuffman1'}, $enc);
-
   my @tlvs = ( );
 
-  push @tlvs, $tlv;
+  if ($text !~ /^\s*$/) {
+    my $enc = $hc->encode($text);
+    my $tlv = $mc->tlv_wrap( $known_types{'InstanceLabelHuffman1'}, $enc);
 
-  $enc = $mc->tencode(3);
-  $tlv = $mc->tlv_wrap( $known_types{'MiscMessageFlags'}, $enc);
+    push @tlvs, $tlv;
+  }
 
-  push @tlvs, $tlv;
+  {
+    my $enc = $mc->tencode(3);
+    my $tlv = $mc->tlv_wrap( $known_types{'MiscMessageFlags'}, $enc);
 
-  my $mesg = $mc->tlvs_to_message(\@tlvs) . $mesg_suffix;
+    push @tlvs, $tlv;
+  }
+
+  my $mesg = $mc->tlvs_to_message(\@tlvs) ;
 
   print $text, ":", $mesg, "\n";
 }
