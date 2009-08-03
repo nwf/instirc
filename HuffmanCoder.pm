@@ -130,6 +130,7 @@ sub decode($$) {
   while ($inst ne "") {
     my $tbl = $$self{'dt'};
     while (!_is_char($tbl)) {
+      return undef if length $inst < 1;
       my $code = substr($inst, 0, 1);
       $inst = substr($inst, 1);
       $tbl = _decode_char($ccr, $code, $tbl);
